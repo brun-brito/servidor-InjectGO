@@ -16,24 +16,35 @@ admin.initializeApp({
 const db = admin.firestore();
 const app = express();
 const PORT = process.env.PORT || 3000;
+const API_KEY = process.env.API_KEY; // Defina no seu arquivo .env
 
-// Função para verificar o status dos pagamentos
+// Middleware para verificar a chave da API
+app.use((req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  if (apiKey !== API_KEY) {
+    return res.status(403).json({ error: 'Acesso negado: chave da API inválida' });
+  }
+  next();
+});
+
+// Função para verificar o status dos pagamentos e retornar os logs
 async function verificarPagamentosDistribuidores() {
-  console.log('Iniciando leitura de distribuidores do banco de dados...');
-
+  let logs = [];
+  
+  logs.push('Iniciando leitura de distribuidores do banco de dados...');
+  
   try {
     const distribuidoresSnapshot = await db.collection('distribuidores').get();
-    console.log(`Total de distribuidores encontrados: ${distribuidoresSnapshot.size}`);
+    logs.push(`Total de distribuidores encontrados: ${distribuidoresSnapshot.size}`);
 
     const distribuidores = distribuidoresSnapshot.docs;
 
-    // Usar for...of para esperar a conclusão de cada verificação
     for (const distribuidor of distribuidores) {
       const dadosPagamento = distribuidor.data().dados_pagamento;
 
       if (dadosPagamento && dadosPagamento.id) {
         const transactionId = dadosPagamento.id;
-        console.log(`Lendo dados do distribuidor ${distribuidor.id}, transaction ID: ${transactionId}`);
+        logs.push(`Lendo dados do distribuidor ${distribuidor.id}, transaction ID: ${transactionId}`);
 
         try {
           // Faz a requisição GET para verificar o status da assinatura no Mercado Pago
@@ -44,7 +55,7 @@ async function verificarPagamentosDistribuidores() {
           });
 
           const status = response.data.status;
-          console.log(`Status do pagamento para o distribuidor ${distribuidor.id}: ${status}`);
+          logs.push(`Status do pagamento para o distribuidor ${distribuidor.id}: ${status}`);
 
           if (status === 'authorized') {
             // Se estiver autorizado, manter o pagamento em dia
@@ -52,44 +63,48 @@ async function verificarPagamentosDistribuidores() {
               'pagamento_em_dia': true,
               'dados_pagamento.last_checked': admin.firestore.FieldValue.serverTimestamp(),
             });
-            console.log(`Distribuidor ${distribuidor.id} com pagamento autorizado.`);
+            logs.push(`Distribuidor ${distribuidor.id} com pagamento autorizado.`);
           } else {
             // Caso contrário, marcar como pagamento não em dia
             await db.collection('distribuidores').doc(distribuidor.id).update({
               'pagamento_em_dia': false,
               'dados_pagamento.last_checked': admin.firestore.FieldValue.serverTimestamp(),
             });
-            console.log(`Distribuidor ${distribuidor.id} com pagamento não autorizado.`);
+            logs.push(`Distribuidor ${distribuidor.id} com pagamento não autorizado.`);
           }
         } catch (error) {
-          console.error(`Erro ao verificar pagamento do distribuidor ${distribuidor.id}:`, error.response ? error.response.data : error.message);
+          logs.push(`Erro ao verificar pagamento do distribuidor ${distribuidor.id}: ${error.response ? error.response.data : error.message}`);
         }
       } else {
-        console.log(`Distribuidor ${distribuidor.id} não tem dados de pagamento.`);
+        logs.push(`Distribuidor ${distribuidor.id} não tem dados de pagamento.`);
       }
     }
 
-    console.log('Verificação dos pagamentos finalizada com sucesso.');
+    logs.push('Verificação dos pagamentos finalizada com sucesso.');
 
   } catch (error) {
-    console.error('Erro ao ler distribuidores do banco de dados:', error.message);
+    logs.push(`Erro ao ler distribuidores do banco de dados: ${error.message}`);
   }
+
+  return logs;
 }
 
-// Agendamento diário para rodar a verificação
-cron.schedule('00 00 * * *', async () => {
-  console.log('Iniciando verificação diária dos pagamentos às 12:05 PM...');
-  await verificarPagamentosDistribuidores();
+// Agendamento diário para rodar a verificação às 00:00
+cron.schedule('50 15 * * *', async () => {
+  console.log('Iniciando verificação diária dos pagamentos...');
+  const logs = await verificarPagamentosDistribuidores();
+  console.log(logs.join('\n'));
   console.log('Verificação diária dos pagamentos concluída.');
 });
 
-// Rota para testar manualmente a verificação
+// Rota para testar manualmente a verificação com logs retornados
 app.get('/verificar-pagamentos', async (req, res) => {
   console.log('Iniciando verificação manual dos pagamentos...');
-  await verificarPagamentosDistribuidores();
-  res.send('Verificação de pagamentos concluída.');
+  const logs = await verificarPagamentosDistribuidores();
+  res.json({ logs });
 });
 
+// Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
 });
