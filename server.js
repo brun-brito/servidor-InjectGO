@@ -90,7 +90,7 @@ async function verificarPagamentosDistribuidores() {
 }
 
 // Agendamento diário para rodar a verificação às 00:00
-cron.schedule('50 15 * * *', async () => {
+cron.schedule('57 11 * * *', async () => {
   console.log('Iniciando verificação diária dos pagamentos...');
   const logs = await verificarPagamentosDistribuidores();
   console.log(logs.join('\n'));
