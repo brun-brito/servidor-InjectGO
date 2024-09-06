@@ -76,7 +76,7 @@ async function verificarPagamentosDistribuidores() {
   }
 }
 
-// Agendamento diário para rodar a verificação às 12:05 da tarde
+// Agendamento diário para rodar a verificação
 cron.schedule('00 00 * * *', async () => {
   console.log('Iniciando verificação diária dos pagamentos às 12:05 PM...');
   await verificarPagamentosDistribuidores();
