@@ -89,9 +89,9 @@ async function verificarPagamentosDistribuidores() {
   return logs;
 }
 
-// Agendamento diário para rodar a verificação às 00:00
-cron.schedule('16 19 * * *', async () => {
-  console.log('Iniciando verificação diária dos pagamentos...');
+// Agendamento diário para rodar a verificação às 00:00 GMT-3 (que vao ser 03:00 no UTC)
+cron.schedule('0 3 * * *', async () => {
+  console.log('Iniciando verificação diária AUTOMÁTICA dos pagamentos...');
   const logs = await verificarPagamentosDistribuidores();
   console.log(logs.join('\n'));
   console.log('Verificação diária dos pagamentos concluída.');
@@ -99,7 +99,7 @@ cron.schedule('16 19 * * *', async () => {
 
 // Rota para testar manualmente a verificação com logs retornados
 app.get('/verificar-pagamentos', async (req, res) => {
-  console.log('Iniciando verificação manual dos pagamentos...');
+  console.log('Iniciando verificação MANUAL dos pagamentos...');
   console.log(`Hora atual do servidor: ${new Date().toLocaleString()}`);
   const logs = await verificarPagamentosDistribuidores();
   res.json({ logs });
