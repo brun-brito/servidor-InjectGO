@@ -90,15 +90,12 @@ async function verificarPagamentosDistribuidores() {
 }
 
 // Agendamento diário para rodar a verificação às 00:00
-cron.schedule('0 12 * * *', async () => {
-  console.log('Iniciando verificação diária...');
-  await verificarPagamentosDistribuidores();
-  console.log('Verificação diária concluída.');
-}, {
-  scheduled: true,
-  timezone: "America/Sao_Paulo" // Defina o fuso horário que você precisa
+cron.schedule('16 19 * * *', async () => {
+  console.log('Iniciando verificação diária dos pagamentos...');
+  const logs = await verificarPagamentosDistribuidores();
+  console.log(logs.join('\n'));
+  console.log('Verificação diária dos pagamentos concluída.');
 });
-
 
 // Rota para testar manualmente a verificação com logs retornados
 app.get('/verificar-pagamentos', async (req, res) => {
