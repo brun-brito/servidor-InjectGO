@@ -1,5 +1,6 @@
 require('dotenv').config();
 const admin = require('firebase-admin');
+const { google } = require('google-auth-library');
 
 // Inicializar o Firebase Admin SDK
 admin.initializeApp({

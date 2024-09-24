@@ -3,6 +3,7 @@ const express = require('express');
 const cron = require('node-cron');
 const { verificarPagamentosDistribuidores } = require('./paymentService');
 const { enviarNotificacaoDistribuidor } = require('./notificationService');
+const { db, admin } = require('./firebaseConfig');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,9 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Middleware para processar JSON no corpo da requisição
+app.use(express.json());
 
 // Agendamento diário para verificação de pagamentos
 cron.schedule('0 3 * * *', async () => {
@@ -42,7 +46,7 @@ app.post('/realizar-compra', async (req, res) => {
       productId: productId,
       userId: userId,
       status: 'solicitado',
-      data_pedido: admin.firestore.FieldValue.serverTimestamp()
+      data_pedido: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     console.log(`Compra registrada com sucesso: ${compraRef.id}`);
