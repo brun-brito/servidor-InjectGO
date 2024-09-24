@@ -3,7 +3,7 @@ const axios = require('axios');
 const { getAccessToken } = require('./accessTokenGoogle');
 
 // Função para enviar notificação ao distribuidor
-async function enviarNotificacaoDistribuidor(distribuidorId, mensagem) {
+async function enviarNotificacaoDistribuidor(distribuidorId, titulo, mensagem) {
     try {
       // Obter os tokens FCM do distribuidor
       const distribuidorRef = db.collection('distribuidores').doc(distribuidorId);
@@ -28,7 +28,7 @@ async function enviarNotificacaoDistribuidor(distribuidorId, mensagem) {
           message: {
             token: token,
             notification: {
-              title: "Nova Compra Realizada",
+              title: titulo,
               body: mensagem,
             },
             data: {
