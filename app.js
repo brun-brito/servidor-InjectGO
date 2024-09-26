@@ -2,9 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const cron = require('node-cron');
 const { verificarPagamentosDistribuidores } = require('./paymentService');
-const { enviarNotificacaoDistribuidor } = require('./notificationService');
+const { enviarNotificacaoDistribuidor, enviarNotificacao } = require('./notificationService');
 const { db, admin } = require('./firebaseConfig');
-const { verificarPagamento } = require('./verificaPagamento');
+const { atualizarStatusPagamento } = require('./verificaCompra');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,30 +37,10 @@ app.get('/verificar-pagamentos', async (req, res) => {
   res.json({ logs });
 });
 
-// Rota para registrar compra e enviar notificação
-app.post('/realizar-compra', async (req, res) => {
-  const { distribuidorId, productId, userId } = req.body;
-
-  try {
-    // Registrar a compra (exemplo simplificado)
-    const compraRef = await db.collection('distribuidores').doc(distribuidorId).collection('vendas').add({
-      productId: productId,
-      userId: userId,
-      status: 'solicitado',
-      data_pedido: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    console.log(`Compra registrada com sucesso: ${compraRef.id}`);
-
-    // Enviar notificação ao distribuidor
-    await enviarNotificacaoDistribuidor(distribuidorId, `Uma nova compra foi realizada para o produto ${productId}.`);
-
-    res.status(200).json({ message: 'Compra realizada e notificação enviada.' });
-  } catch (error) {
-    console.error('Erro ao realizar compra:', error);
-    res.status(500).json({ error: 'Erro ao realizar compra.' });
-  }
+app.get('/mantem-server', async (req, res) => {
+    res.status(200).send('Servidor ativo');
 });
+
 
 // Rota de sucesso
 app.get('/success', async (req, res) => {
@@ -73,7 +53,66 @@ app.get('/success', async (req, res) => {
 
         // Atualiza a coleção 'distribuidores' e 'users' para o pedido
         await atualizarStatusPagamento(external_reference, payment_id, 'solicitado');
-        res.status(200).send('Pagamento aprovado.');
+        res.status(200).send(`
+            <!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Compra Bem Sucedida</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        background-color: #f0f0f0;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        margin: 0;
+                    }
+                    .container {
+                        background-color: #fff;
+                        padding: 20px;
+                        border-radius: 10px;
+                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                        text-align: center;
+                    }
+                    h1 {
+                        color: #28a745;
+                    }
+                    p {
+                        font-size: 18px;
+                        color: #333;
+                    }
+                    .success-message {
+                        font-size: 24px;
+                        font-weight: bold;
+                        color: #28a745;
+                    }
+                    .button {
+                        margin-top: 20px;
+                        padding: 10px 20px;
+                        background-color: #28a745;
+                        color: white;
+                        border: none;
+                        border-radius: 5px;
+                        cursor: pointer;
+                    }
+                    .button:hover {
+                        background-color: #218838;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Pagamento Aprovado!</h1>
+                    <p class="success-message">Sua compra foi realizada com sucesso.</p>
+                    <p>Agora você pode fechar esta página.</p>
+                    <p>ID da compra: ${external_reference}</p>
+                </div>
+            </body>
+            </html>
+        `);
     } catch (error) {
         console.error('Erro ao processar sucesso de pagamento:', error);
         res.status(500).send('Erro ao processar sucesso de pagamento.');
@@ -91,76 +130,126 @@ app.get('/failure', async (req, res) => {
 
         // Atualiza o status para 'rejeitado' em caso de falha
         await atualizarStatusPagamento(external_reference, payment_id, 'rejeitado');
-        res.status(200).send('Pagamento rejeitado.');
+
+        // Retorna uma página HTML estilizada para falha
+        res.status(200).send(`
+            <!DOCTYPE html>
+            <html lang="pt-BR">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Pagamento Falhou</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        background-color: #f0f0f0;
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        margin: 0;
+                    }
+                    .container {
+                        background-color: #fff;
+                        padding: 20px;
+                        border-radius: 10px;
+                        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+                        text-align: center;
+                    }
+                    h1 {
+                        color: #dc3545;
+                    }
+                    p {
+                        font-size: 18px;
+                        color: #333;
+                    }
+                    .error-message {
+                        font-size: 24px;
+                        font-weight: bold;
+                        color: #dc3545;
+                    }
+                    .button {
+                        margin-top: 20px;
+                        padding: 10px 20px;
+                        background-color: #dc3545;
+                        color: white;
+                        border: none;
+                        border-radius: 5px;
+                        cursor: pointer;
+                    }
+                    .button:hover {
+                        background-color: #c82333;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>Pagamento Rejeitado</h1>
+                    <p class="error-message">Infelizmente, seu pagamento não foi aprovado.</p>
+                    <p>Por favor, tente novamente ou entre em contato com o suporte.</p><br>
+                    <p>ID da compra: ${external_reference}</p>
+                </div>
+            </body>
+            </html>
+        `);
     } catch (error) {
         console.error('Erro ao processar falha de pagamento:', error);
         res.status(500).send('Erro ao processar falha de pagamento.');
     }
 });
 
-// Função que busca e atualiza uma venda com base no external_reference
-async function atualizarStatusPagamento(externalReference, paymentId, novoStatus) {
-    try {
-        let vendaAtualizada = false;
-        let compraAtualizada = false;
-        let distribuidorId = '';
-
-
-        // Busca todas as vendas na coleção 'vendas'
-        const vendasSnapshot = await db.collectionGroup('vendas').get();
-        if (!vendasSnapshot.empty) {
-            for (const doc of vendasSnapshot.docs) {
-                if (doc.id === externalReference) {
-                    distribuidorId = doc.ref.parent.parent.id;
-
-
-                    // Atualizar a venda com os novos dados
-                    await doc.ref.update({
-                        'payment_id': paymentId,
-                        'status': novoStatus,
-                        'data_pagamento': new Date(),  // Atualiza a data de pagamento
-                    });
-                    vendaAtualizada = true;
-
-
-                    // Envia notificação ao distribuidor
-                    await enviarNotificacaoDistribuidor(distribuidorId, `Compra Solicitada`,`Uma nova compra foi solicitada para o produto. Clique para aprovar ou rejeitar.`);
-                }
-            }
-        } else {
-        }
-
-        // Busca todas as compras na coleção 'compras'
-        const comprasSnapshot = await db.collectionGroup('compras').get();
-        if (!comprasSnapshot.empty) {
-            for (const doc of comprasSnapshot.docs) {
-                if (doc.id === externalReference) {
-
-                    // Atualizar a compra com os novos dados
-                    await doc.ref.update({
-                        'payment_id': paymentId,
-                        'status': novoStatus,
-                        'data_pagamento': new Date(),  // Atualiza a data de pagamento
-                    });
-
-                    compraAtualizada = true;
-                }
-            }
-        } else {
-        }
-
-        if (!vendaAtualizada && !compraAtualizada) {
-            console.log(`Nenhuma venda ou compra encontrada com o external_reference fornecido (${externalReference}).`);
-        } else {
-            console.log('Atualização de venda e compra concluída com sucesso.');
-        }
-
-    } catch (error) {
-        console.error('Erro ao atualizar venda e compra por external_reference:', error);
-        throw new Error('Erro ao atualizar venda e compra por external_reference.');
+app.post('/enviar-notificacao', async (req, res) => {
+    const { titulo, mensagem, userId, tipoUsuario } = req.body;
+  
+    // Validação básica dos parâmetros
+    if (!titulo || !mensagem || !userId || !tipoUsuario) {
+      return res.status(400).json({ error: 'Parâmetros incompletos. Certifique-se de fornecer título, mensagem, userId e tipoUsuario.' });
     }
-}
+  
+    try {
+      // Chamar a função para enviar notificação
+      const result = await enviarNotificacao(titulo, mensagem, userId, tipoUsuario);
+      
+      // Verificar se houve algum erro ou resultado inesperado
+      if (result === 'Tipo de usuário inválido') {
+        return res.status(400).json({ error: 'Tipo de usuário inválido. Use "distribuidor" ou "profissional".' });
+      }
+  
+      return res.status(200).json({ message: 'Notificação enviada com sucesso.' });
+    } catch (error) {
+      console.error('Erro ao enviar notificação:', error);
+      return res.status(500).json({ error: 'Erro ao enviar notificação.' });
+    }
+  });
 
+  app.post('/enviar-notificacao2', async (req, res) => {
+    const { token, title, body, route, distribuidorId, email, initialTab } = req.body;
+
+  if (!token || !title || !body || !route) {
+    return res.status(400).json({ message: 'Token, título, corpo e rota são obrigatórios.' });
+  }
+
+  const message = {
+    notification: {
+      title: title,
+      body: body,
+    },
+    data: {
+      route: route,
+      distribuidorId: distribuidorId || '',
+      email: email || '',
+      initialTab: initialTab || '0'
+    },
+    token: token
+  };
+
+  try {
+    const response = await admin.messaging().send(message);
+    return res.status(200).json({ message: 'Notificação enviada com sucesso!', response });
+  } catch (error) {
+    return res.status(500).json({ message: 'Erro ao enviar notificação', error: error.toString() });
+  }
+});
 
 // Iniciar o servidor
 app.listen(PORT, () => {
