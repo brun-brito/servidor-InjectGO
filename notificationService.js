@@ -63,6 +63,68 @@ async function enviarNotificacaoDistribuidor(distribuidorId, titulo, mensagem) {
     }
 }
 
+async function enviarNotificacaoProfissional(email, titulo, mensagem) {
+  try {
+    // Fazer uma busca no Firestore pelo email
+    const profissionalRef = db.collection('users').where('email', '==', email).limit(1);
+    const profissionalSnapshot = await profissionalRef.get();
+    
+    if (profissionalSnapshot.empty) {
+      console.log(`Profissional com email ${email} não encontrado.`);
+      return;
+    }
+
+    const profissionalDoc = profissionalSnapshot.docs[0]; // Obtém o primeiro documento
+    const profissionalData = profissionalDoc.data();
+    const fcmTokens = profissionalData.fcmTokens || [];
+
+    if (fcmTokens.length === 0) {
+      console.log(`Nenhum token FCM encontrado para o profissional com email ${email}.`);
+      return;
+    }
+
+    // Para cada token, enviar a notificação usando a API v1
+    for (const token of fcmTokens) {
+      const payload = {
+        message: {
+          token: token,
+          notification: {
+            title: titulo,
+            body: mensagem,
+          },
+          data: {
+            click_action: "FLUTTER_NOTIFICATION_CLICK",
+            route: "/minhas_compras",
+            profissionalId: profissionalDoc.id,  // Usa o ID do documento encontrado
+            initialTab: "1"
+          }
+        }
+      };
+
+      const url = `https://fcm.googleapis.com/v1/projects/${process.env.FIREBASE_PROJECT_ID}/messages:send`;
+      const accessToken = await getAccessToken();
+
+      const response = await axios.post(url, payload, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data) {
+        console.log(`Notificação enviada com sucesso para token ${token}`);
+      } else {
+        console.log(`Erro ao enviar notificação para token ${token}:`, response);
+      }
+    }
+
+  } catch (error) {
+    console.error(`Erro ao enviar notificação para o profissional com email ${email}:`, error);
+  }
+}
+
+
+
 async function enviarNotificacao(titulo, mensagem, userId, tipoUsuario) {
   try {
       // Definir a coleção com base no tipo de usuário
@@ -144,5 +206,6 @@ async function enviarNotificacao(titulo, mensagem, userId, tipoUsuario) {
 
 module.exports = {
   enviarNotificacaoDistribuidor,
-  enviarNotificacao
+  enviarNotificacao,
+  enviarNotificacaoProfissional
 };

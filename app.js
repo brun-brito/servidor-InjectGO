@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cron = require('node-cron');
 const { verificarPagamentosDistribuidores, verificarEAtualizarTokens } = require('./paymentService');
-const { enviarNotificacaoDistribuidor, enviarNotificacao } = require('./notificationService');
+const { enviarNotificacaoDistribuidor, enviarNotificacao, enviarNotificacaoProfissional } = require('./notificationService');
 const { db, admin } = require('./firebaseConfig');
 const { atualizarStatusPagamento } = require('./verificaCompra');
 
@@ -263,6 +263,22 @@ app.post('/enviar-notificacao', async (req, res) => {
   } catch (error) {
     return res.status(500).json({ message: 'Erro ao enviar notificação', error: error.toString() });
   }
+});
+
+app.post('/enviar-notificacao-profissional', async (req, res) => {
+    const { email, titulo, mensagem, statusVenda } = req.body;
+
+    if (!email || !titulo || !mensagem || !statusVenda) {
+        return res.status(400).json({ error: 'Parâmetros ausentes' });
+    }
+
+    try {
+        await enviarNotificacaoProfissional(email, titulo, mensagem, statusVenda);
+        return res.status(200).json({ success: 'Notificação enviada para o profissional.' });
+    } catch (error) {
+        console.error('Erro ao enviar notificação para o profissional:', error);
+        return res.status(500).json({ error: 'Erro ao enviar notificação para o profissional.' });
+    }
 });
 
 app.post('/webhook', (req, res) => {
