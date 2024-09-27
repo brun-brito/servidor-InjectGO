@@ -1,7 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cron = require('node-cron');
-const { verificarPagamentosDistribuidores } = require('./paymentService');
+const { verificarPagamentosDistribuidores, verificarEAtualizarTokens } = require('./paymentService');
 const { enviarNotificacaoDistribuidor, enviarNotificacao } = require('./notificationService');
 const { db, admin } = require('./firebaseConfig');
 const { atualizarStatusPagamento } = require('./verificaCompra');
@@ -23,11 +23,12 @@ const API_KEY = process.env.API_KEY;
 app.use(express.json());
 
 // Agendamento diário para verificação de pagamentos
-cron.schedule('33 3 * * *', async () => {
+cron.schedule('0 3 * * *', async () => {
   console.log('Iniciando verificação diária AUTOMÁTICA dos pagamentos...');
   const logs = await verificarPagamentosDistribuidores();
   console.log(logs.join('\n'));
-  console.log('Verificação diária dos pagamentos concluída.');
+  await verificarEAtualizarTokens();
+  console.log('Verificação diária dos pagamentos e tokens concluída.');
 });
 
 // Rota para teste manual de verificação de pagamentos
@@ -36,6 +37,19 @@ app.get('/verificar-pagamentos', async (req, res) => {
   const logs = await verificarPagamentosDistribuidores();
   res.json({ logs });
 });
+
+app.get('/renova-tokens', async (req, res) => {
+    try {
+        console.log('Iniciando verificação MANUAL de tokens...');
+        const logs = await verificarEAtualizarTokens();
+
+        res.status(200).json({ message: 'Verificação e atualização de tokens concluída com sucesso.', logs });
+    } catch (error) {
+        console.error('Erro durante a verificação e atualização de tokens:', error);
+        res.status(500).json({ message: 'Erro ao verificar e atualizar tokens.', error: error.message });
+    }
+});
+
 
 app.get('/mantem-server', async (req, res) => {
     res.status(200).send('Servidor ativo');
