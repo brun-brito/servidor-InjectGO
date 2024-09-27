@@ -23,7 +23,7 @@ const API_KEY = process.env.API_KEY;
 app.use(express.json());
 
 // Agendamento diário para verificação de pagamentos
-cron.schedule('27 3 * * *', async () => {
+cron.schedule('33 3 * * *', async () => {
   console.log('Iniciando verificação diária AUTOMÁTICA dos pagamentos...');
   const logs = await verificarPagamentosDistribuidores();
   console.log(logs.join('\n'));
