@@ -265,6 +265,12 @@ app.post('/enviar-notificacao', async (req, res) => {
   }
 });
 
+app.post('/webhook', (req, res) => {
+    console.log('Recebido webhook:', req.body);
+    // Processar webhook
+    res.status(200).send('Webhook recebido');
+});
+
 // Iniciar o servidor
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
