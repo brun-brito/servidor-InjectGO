@@ -1,4 +1,5 @@
-const { enviarNotificacaoDistribuidor, enviarEmailDistribuidor } = require('./notificationService');
+const { enviarNotificacaoDistribuidor } = require('./notificationService');
+const { enviarEmailDistribuidor} = require('./enviaEmail');
 const { db } = require('./firebaseConfig');
 
 // Função que busca e atualiza uma venda com base no external_reference
