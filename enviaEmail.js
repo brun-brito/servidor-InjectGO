@@ -39,6 +39,15 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
 
     // Adiciona verificações para o campo 'preco' e outros valores numéricos
     const precoProduto = typeof produto.preco === 'number' ? produto.preco.toFixed(2) : 'N/A';
+    const dataCriacao = pedido.data_criacao instanceof admin.firestore.Timestamp 
+      ? new Date(pedido.data_criacao.seconds * 1000).toLocaleString() 
+      : 'Data de criação não disponível';
+    
+    // Verifica se o campo 'data_pagamento' existe e é um Timestamp
+    const dataPagamento = pedido.data_pagamento instanceof admin.firestore.Timestamp 
+      ? new Date(pedido.data_pagamento.seconds * 1000).toLocaleString() 
+      : 'Data de pagamento não disponível';
+    
 
     // Construir o conteúdo HTML com os detalhes do pedido
     const htmlContentAprovado = (pedido, produto, distribuidor, endereco, envio) => `
@@ -88,8 +97,8 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
 
         <h2 style="color: #ec3f79;">Informações do Pagamento</h2>
         <ul style="list-style: none; padding: 0;">
-            <li><strong>Data de Criação:</strong> ${new Date(pedido.data_criacao.seconds * 1000).toLocaleString()}</li>
-            <li><strong>Data de Pagamento:</strong> ${new Date(pedido.data_pagamento.seconds * 1000).toLocaleString()}</li>
+            <li><strong>Data de Criação:</strong> ${dataCriacao}</li>
+            <li><strong>Data de Pagamento:</strong> ${dataPagamento}</li>
             <li><strong>ID do Pagamento:</strong> ${pedido.payment_id || 'N/A'}</li>
         </ul>
 

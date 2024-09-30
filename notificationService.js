@@ -16,6 +16,7 @@ async function enviarNotificacaoDistribuidor(distribuidorId, titulo, mensagem) {
     }
 
     const distribuidorData = distribuidorDoc.data();
+    const emailDistribuidor = distribuidorData.email;
     const tokens = distribuidorData.tokens || []; // Busca o array de tokens
 
     if (tokens.length === 0) {
@@ -43,6 +44,7 @@ async function enviarNotificacaoDistribuidor(distribuidorId, titulo, mensagem) {
             click_action: "FLUTTER_NOTIFICATION_CLICK",
             route: "/minhas_vendas",
             distribuidorId: distribuidorId,
+            email: emailDistribuidor,
             initialTab: "0"  // Aba "Solicitado"
           }
         }
