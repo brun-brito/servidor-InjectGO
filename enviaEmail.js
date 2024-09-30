@@ -1,0 +1,317 @@
+const { db, admin } = require('./firebaseConfig');
+const nodemailer = require('nodemailer');
+
+async function enviarEmailProfissional(externalReference, profissionalId, titulo, mensagem, status) {
+    try {
+      const profissionalRef = db.collection('users').doc(profissionalId);
+      const profissionalDoc = await profissionalRef.get();
+  
+      if (!profissionalDoc.exists) {
+        console.log(`Profissional com ID ${profissionalId} não encontrado.`);
+        return;
+      }
+  
+      const profissionalData = profissionalDoc.data();
+      const profissionalEmail = profissionalData.email;
+  
+      if (!profissionalEmail) {
+        console.log(`Nenhum email encontrado para o profissional com ID ${profissionalId}.`);
+        return;
+      }
+  
+      const pedidoRef = profissionalRef.collection('compras').doc(externalReference);
+      const pedidoDoc = await pedidoRef.get();
+  
+      if (!pedidoDoc.exists) {
+        console.log(`Pedido com ID ${externalReference} não encontrado.`);
+        return;
+      }
+  
+    const pedido = pedidoDoc.data();
+    const distribuidor = pedido.distributorInfo;
+    const produto = pedido.produtos[0]?.productInfo || {}; // Verificação de existência do produto
+    const endereco = pedido.endereco_entrega;
+    const envio = {
+      frete: pedido.info_entrega.frete || 0, // Define 0 como valor padrão se 'frete' não estiver presente
+      responsavel: pedido.info_entrega.responsavel || 'N/A', // Responsável por padrão se ausente
+      tempoPrevisto: pedido.info_entrega.tempo_previsto || 'N/A' // Tempo previsto padrão se ausente
+    };
+
+    // Adiciona verificações para o campo 'preco' e outros valores numéricos
+    const precoProduto = typeof produto.preco === 'number' ? produto.preco.toFixed(2) : 'N/A';
+
+    // Construir o conteúdo HTML com os detalhes do pedido
+    const htmlContentAprovado = (pedido, produto, distribuidor, endereco, envio) => `
+    <div style="font-family: Arial, sans-serif; background-color: #f8f9fa; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+        
+        <div style="background-color: #ec3f79; padding: 10px 0; text-align: center;">
+        <img src="cid:logo" alt="InjectGO Logo" style="width: 150px;"/>
+        </div>
+        
+        <div style="padding: 20px;">
+        <h1 style="color: #333;">Seu pedido foi aprovado!</h1>
+        <p>O pagamento foi confirmado, e o seu pedido está sendo processado.</p>
+
+        <h2 style="color: #ec3f79;">Detalhes do Pedido</h2>
+        <ul style="list-style: none; padding: 0;">
+            <li><strong>Produto:</strong> ${produto.nome || 'N/A'}</li>
+            <li><strong>Categoria:</strong> ${produto.categoria || 'N/A'}</li>
+            <li><strong>Marca:</strong> ${produto.marca || 'N/A'}</li>
+            <li><strong>Preço:</strong> R$ ${produto.preco ? produto.preco.toFixed(2) : 'N/A'}</li>
+            <li><strong>Quantidade:</strong> ${produto.quantidade || 'N/A'}</li>
+        </ul>
+
+        <h2 style="color: #ec3f79;">Distribuidor</h2>
+        <ul style="list-style: none; padding: 0;">
+            <li><strong>Razão Social:</strong> ${distribuidor.razao_social || 'N/A'}</li>
+            <li><strong>CNPJ:</strong> ${distribuidor.cnpj || 'N/A'}</li>
+            <li><strong>E-mail:</strong> ${distribuidor.email || 'N/A'}</li>
+            <li><strong>Telefone:</strong> ${distribuidor.telefone || 'N/A'}</li>
+        </ul>
+
+        <h2 style="color: #ec3f79;">Endereço de Entrega</h2>
+        <ul style="list-style: none; padding: 0;">
+            <li><strong>Rua:</strong> ${endereco.rua || 'N/A'}, ${endereco.numero || 'N/A'}</li>
+            <li><strong>Bairro:</strong> ${endereco.bairro || 'N/A'}</li>
+            <li><strong>Cidade:</strong> ${endereco.cidade || 'N/A'} - ${endereco.uf || 'N/A'}</li>
+            <li><strong>CEP:</strong> ${endereco.cep || 'N/A'}</li>
+            <li><strong>Complemento:</strong> ${endereco.complemento || 'N/A'}</li>
+        </ul>
+
+        <h2 style="color: #ec3f79;">Informações de Envio</h2>
+        <ul style="list-style: none; padding: 0;">
+            <li><strong>Frete:</strong> R$ ${envio.frete.toFixed(2)}</li>
+            <li><strong>Responsável:</strong> ${envio.responsavel}</li>
+            <li><strong>Tempo Previsto de Entrega:</strong> ${envio.tempoPrevisto} dias</li>
+        </ul>
+
+        <h2 style="color: #ec3f79;">Informações do Pagamento</h2>
+        <ul style="list-style: none; padding: 0;">
+            <li><strong>Data de Criação:</strong> ${new Date(pedido.data_criacao.seconds * 1000).toLocaleString()}</li>
+            <li><strong>Data de Pagamento:</strong> ${new Date(pedido.data_pagamento.seconds * 1000).toLocaleString()}</li>
+            <li><strong>ID do Pagamento:</strong> ${pedido.payment_id || 'N/A'}</li>
+        </ul>
+
+        <p style="margin-top: 20px;">
+            <a href="injectgo.com.br" style="display: inline-block; padding: 10px 15px; background-color: #ec3f79; color: #fff; text-decoration: none; border-radius: 5px;">Ver Pedido no App</a>
+        </p>
+        </div>
+
+        <div style="background-color: #f1f1f1; padding: 10px; text-align: center;">
+        <p style="font-size: 12px; color: #888;">InjectGO © 2024. Todos os direitos reservados.</p>
+        </div>
+    </div>
+    </div>
+    `;
+
+    const htmlContentRejeitado = (produto, distribuidor, endereco, envio, reembolsoInfo) => `
+    <div style="font-family: Arial, sans-serif; background-color: #f8f9fa; padding: 20px;">
+        <div style="max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+        
+        <div style="background-color: #ec3f79; padding: 10px 0; text-align: center;">
+            <img src="cid:logo" alt="InjectGO Logo" style="width: 150px;"/>
+        </div>
+        
+        <div style="padding: 20px;">
+            <h1 style="color: #333;">Seu pedido foi rejeitado</h1>
+            <p>Infelizmente, seu pedido foi rejeitado e o reembolso foi processado.</p>
+
+            <h2 style="color: #ec3f79;">Detalhes do Pedido</h2>
+            <ul style="list-style: none; padding: 0;">
+            <li><strong>Produto:</strong> ${produto.nome || 'N/A'}</li>
+            <li><strong>Categoria:</strong> ${produto.categoria || 'N/A'}</li>
+            <li><strong>Marca:</strong> ${produto.marca || 'N/A'}</li>
+            <li><strong>Preço:</strong> R$ ${produto.preco ? produto.preco.toFixed(2) : 'N/A'}</li>
+            <li><strong>Quantidade:</strong> ${produto.quantidade || 'N/A'}</li>
+            </ul>
+
+            <h2 style="color: #ec3f79;">Distribuidor</h2>
+            <ul style="list-style: none; padding: 0;">
+            <li><strong>Razão Social:</strong> ${distribuidor.razao_social || 'N/A'}</li>
+            <li><strong>CNPJ:</strong> ${distribuidor.cnpj || 'N/A'}</li>
+            <li><strong>E-mail:</strong> ${distribuidor.email || 'N/A'}</li>
+            <li><strong>Telefone:</strong> ${distribuidor.telefone || 'N/A'}</li>
+            </ul>
+
+            <h2 style="color: #ec3f79;">Informações de Reembolso</h2>
+            <ul style="list-style: none; padding: 0;">
+            <li><strong>ID do Reembolso:</strong> ${reembolsoInfo.refund_id || 'N/A'}</li>
+            <li><strong>Data do Reembolso:</strong> ${new Date(reembolsoInfo.date_created).toLocaleString() || 'N/A'}</li>
+            <li><strong>Status do Reembolso:</strong> ${reembolsoInfo.status || 'N/A'}</li>
+            </ul>
+
+            <p>O reembolso foi processado e você deverá receber o valor em sua conta nos próximos dias.</p>
+
+            <p style="margin-top: 20px;">
+            <a href="injectgo.com.br" style="display: inline-block; padding: 10px 15px; background-color: #ec3f79; color: #fff; text-decoration: none; border-radius: 5px;">Ver Pedido no App</a>
+            </p>
+        </div>
+
+        <div style="background-color: #f1f1f1; padding: 10px; text-align: center;">
+            <p style="font-size: 12px; color: #888;">InjectGO © 2024. Todos os direitos reservados.</p>
+        </div>
+        </div>
+    </div>
+    `;
+
+    let htmlContent;
+    if (status === 'aprovado') {
+        htmlContent = htmlContentAprovado(pedido, produto, distribuidor, endereco, envio);
+    } else if (status === 'rejeitado') {
+        const reembolsoInfo = pedido.reembolsoInfo || {};
+        htmlContent = htmlContentRejeitado(produto, distribuidor, endereco, envio, reembolsoInfo);
+    } else {
+        console.log(`Status desconhecido: ${status}`);
+        return;
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: { user: process.env.MAIL_SENDER, pass: process.env.MAIL_PASSWORD }
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: profissionalEmail,
+      subject: titulo,
+      html: htmlContent,
+      attachments: [{
+        filename: 'logoDeitadaBranca.jpeg',
+        path: 'fotos/logoDeitadaBranca.jpeg',
+        cid: 'logo'
+      }]
+    }
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('E-mail enviado com sucesso para ', info.accepted);
+    return { success: true };
+  } catch (error) {
+    console.error('Erro ao enviar e-mail:', error);
+    return { success: false, error: error.message };
+  }
+}
+  
+
+  
+async function enviarEmailDistribuidor(externalReference, distribuidorId, titulo) {
+    try {
+      // Obter os dados do distribuidor
+      const distribuidorRef = db.collection('distribuidores').doc(distribuidorId);
+      const distribuidorDoc = await distribuidorRef.get();
+  
+      if (!distribuidorDoc.exists) {
+        console.log(`Distribuidor com ID ${distribuidorId} não encontrado.`);
+        return;
+      }
+  
+      const distribuidorData = distribuidorDoc.data();
+      const distribuidorEmail = distribuidorData.email;
+  
+      if (!distribuidorEmail) {
+        console.log(`Nenhum email encontrado para o distribuidor com ID ${distribuidorId}.`);
+        return;
+      }
+  
+      const pedidoRef = distribuidorRef.collection('vendas').doc(externalReference);
+      const pedidoDoc = await pedidoRef.get();
+  
+      if (!pedidoDoc.exists) {
+          console.log(`Pedido com ID ${externalReference} não encontrado.`);
+          return;
+      }
+  
+      const pedido = pedidoDoc.data();
+  
+      const comprador = pedido.buyerInfo;
+      const endereco = pedido.endereco_entrega;
+      const produto = pedido.produtos[0].productInfo;
+      const envio = pedido.info_envio;
+  
+  
+      // Construir o conteúdo HTML estilizado com os detalhes do pedido
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; background-color: #f8f9fa; padding: 20px;">
+          <div style="max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+            
+            <div style="background-color: #ec3f79; padding: 10px 0; text-align: center;">
+              <img src="cid:logo" alt="InjectGO Logo" style="width: 150px;"/>
+            </div>
+            
+            <div style="padding: 20px;">
+              <h1 style="color: #333;">Compra Solicitada</h1>
+              <p>O pedido de ID <strong>${pedido.id}</strong> foi solicitado.</p>
+              
+              <h2 style="color: #ec3f79;">Detalhes do Pedido</h2>
+              <ul style="list-style: none; padding: 0;">
+                <li><strong>Produto:</strong> ${produto.nome}</li>
+                <li><strong>Preço:</strong> R$ ${produto.preco}</li>
+                <li><strong>Quantidade:</strong> ${produto.quantidade}</li>
+                <li><strong>Comprador:</strong> ${comprador.nome} (${comprador.email})</li>
+                <li><strong>Telefone:</strong> ${comprador.telefone}</li>
+              </ul>
+              
+              <h2 style="color: #ec3f79;">Endereço de Entrega</h2>
+              <ul style="list-style: none; padding: 0;">
+                <li><strong>Rua:</strong> ${endereco.rua}, ${endereco.numero}</li>
+                <li><strong>Bairro:</strong> ${endereco.bairro}</li>
+                <li><strong>Cidade:</strong> ${endereco.cidade} - ${endereco.uf}</li>
+                <li><strong>CEP:</strong> ${endereco.cep}</li>
+                <li><strong>Complemento:</strong> ${endereco.complemento}</li>
+              </ul>
+  
+              <h2 style="color: #ec3f79;">Informações de Envio</h2>
+              <ul style="list-style: none; padding: 0;">
+                <li><strong>Responsável:</strong> ${envio.responsavel}</li>
+                <li><strong>Frete:</strong> R$ ${envio.frete}</li>
+                <li><strong>Tempo Previsto:</strong> ${envio.tempo_previsto} dias</li>
+                <li><strong>Dimensões:</strong> ${envio.dimensoes_caixa.altura}x${envio.dimensoes_caixa.largura}x${envio.dimensoes_caixa.comprimento} cm</li>
+                <li><strong>Peso Aproximado:</strong> ${envio.dimensoes_caixa.peso_aproximado} kg</li>
+              </ul>
+  
+              <p style="margin-top: 20px;">
+                <a href="injectgo.com.br" style="display: inline-block; padding: 10px 15px; background-color: #ec3f79; color: #fff; text-decoration: none; border-radius: 5px;">Ver Pedido no App</a>
+              </p>
+            </div>
+            
+            <div style="background-color: #f1f1f1; padding: 10px; text-align: center;">
+              <p style="font-size: 12px; color: #888;">InjectGO © 2024. Todos os direitos reservados.</p>
+            </div>
+          </div>
+        </div>
+      `;
+  
+      const transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: { user: process.env.MAIL_SENDER, pass: process.env.MAIL_PASSWORD }
+      });
+  
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: distribuidorEmail,
+        subject: titulo,
+        html: htmlContent,
+        attachments: [{
+          filename: 'logoDeitadaBranca.jpeg',
+          path: 'fotos/logoDeitadaBranca.jpeg',
+          cid: 'logo'
+        }]
+      }
+      
+      const info = await transporter.sendMail(mailOptions);
+      console.log('E-mail enviado com uscesso para ', info.accepted);
+    } catch (error) {
+      console.error('Erro ao enviar e-mail:', error);
+    }
+  }
+  
+  
+module.exports = {
+    enviarEmailDistribuidor,
+    enviarEmailProfissional,
+  };
+  

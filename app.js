@@ -3,6 +3,7 @@ const express = require('express');
 const cron = require('node-cron');
 const { verificarPagamentosDistribuidores, verificarEAtualizarTokens } = require('./paymentService');
 const { enviarNotificacaoDistribuidor, enviarNotificacao, enviarNotificacaoProfissional } = require('./notificationService');
+const { enviarEmailProfissional, enviarEmailDistribuidor} = require('./enviaEmail');
 const { db, admin } = require('./firebaseConfig');
 const { atualizarStatusPagamento } = require('./verificaCompra');
 const nodemailer = require('nodemailer');
@@ -322,6 +323,52 @@ app.post('/send-email', async (req, res) => {
       res.status(500).send({ message: "Erro ao enviar email", error });
     }
   });
+
+  app.post('/enviar-email-status', async (req, res) => {
+    const { externalReference, profissionalId, status } = req.body;
+
+    // Validação dos parâmetros obrigatórios
+    if (!externalReference || !profissionalId || !status) {
+      return res.status(400).json({ error: 'Os parâmetros externalReference, profissionalId e status são obrigatórios.' });
+    }
+
+    try {
+      let titulo;
+      let mensagem;
+
+      // Definir o título e mensagem do e-mail com base no status
+      switch (status) {
+        case 'aprovado':
+          titulo = 'Seu pedido foi aprovado!';
+          mensagem = 'Seu pedido foi aprovado e está em processo de separação.';
+          break;
+        case 'rejeitado':
+          titulo = 'Seu pedido foi rejeitado';
+          mensagem = 'Seu pedido foi rejeitado. Um reembolso foi processado.';
+          break;
+        case 'reembolsado':
+          titulo = 'Reembolso realizado';
+          mensagem = 'O reembolso do seu pedido foi processado com sucesso.';
+          break;
+        default:
+          return res.status(400).json({ error: 'Status inválido. Os valores permitidos são: aprovado, rejeitado, reembolsado.' });
+      }
+
+      // Tenta enviar o e-mail
+      const emailResult = await enviarEmailProfissional(externalReference, profissionalId, titulo, mensagem, status);
+
+      // Verifica se o e-mail foi enviado corretamente (baseado em possíveis respostas da função `enviarEmailProfissional`)
+      if (emailResult.success) {
+        res.status(200).json({ message: 'E-mail enviado com sucesso.' });
+      } else {
+        res.status(500).json({ error: emailResult.error || 'Erro desconhecido ao enviar o e-mail.' });
+      }
+
+    } catch (error) {
+      console.error('Erro ao enviar e-mail:', error);
+      res.status(500).json({ error: `Ocorreu um erro ao enviar o e-mail: ${error.message}` });
+    }
+});
 
 // Iniciar o servidor
 app.listen(PORT, () => {
