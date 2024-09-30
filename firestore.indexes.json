@@ -1,0 +1,284 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "compras",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "data_criacao",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        {
+          "fieldPath": "disponivel",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "quantidade_disponivel",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "marca",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "marca",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "price",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "categoria",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "price",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "disponivel",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "quantidade_disponivel",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "marca",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "marca",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "name",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "marca",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "price",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "marca",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "price",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "data_compra",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "vendas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "data_criacao",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "vendas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "data_criacao",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "produtos",
+      "fieldPath": "disponivel",
+      "ttl": false,
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "produtos",
+      "fieldPath": "id",
+      "ttl": false,
+      "indexes": [
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "DESCENDING",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "arrayConfig": "CONTAINS",
+          "queryScope": "COLLECTION"
+        },
+        {
+          "order": "ASCENDING",
+          "queryScope": "COLLECTION_GROUP"
+        }
+      ]
+    }
+  ]
+}

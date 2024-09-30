@@ -1,4 +1,4 @@
-const { enviarNotificacaoDistribuidor } = require('./notificationService');
+const { enviarNotificacaoDistribuidor, enviarEmailDistribuidor } = require('./notificationService');
 const { db } = require('./firebaseConfig');
 
 // Função que busca e atualiza uma venda com base no external_reference
@@ -27,6 +27,7 @@ async function atualizarStatusPagamento(externalReference, paymentId, novoStatus
 
                     if (novoStatus == 'solicitado')
                         await enviarNotificacaoDistribuidor(distribuidorId, `Compra Solicitada`,`Uma nova compra foi solicitada para o produto. Clique para aprovar ou rejeitar.`);
+                        await enviarEmailDistribuidor(externalReference, distribuidorId, `InjectGO - Compra Solicitada`);
                 }
             }
         } else {

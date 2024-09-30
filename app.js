@@ -5,10 +5,13 @@ const { verificarPagamentosDistribuidores, verificarEAtualizarTokens } = require
 const { enviarNotificacaoDistribuidor, enviarNotificacao, enviarNotificacaoProfissional } = require('./notificationService');
 const { db, admin } = require('./firebaseConfig');
 const { atualizarStatusPagamento } = require('./verificaCompra');
-
+const nodemailer = require('nodemailer');
 const app = express();
+
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.API_KEY;
+const user = process.env.MAIL_SENDER;
+const pass = process.env.MAIL_PASSWORD;
 
 // Middleware para verificar a chave da API
 // app.use((req, res, next) => {
@@ -54,7 +57,6 @@ app.get('/renova-tokens', async (req, res) => {
 app.get('/mantem-server', async (req, res) => {
     res.status(200).send('Servidor ativo');
 });
-
 
 // Rota de sucesso
 app.get('/success', async (req, res) => {
@@ -286,6 +288,40 @@ app.post('/webhook', (req, res) => {
     // Processar webhook
     res.status(200).send('Webhook recebido');
 });
+
+app.post('/send-email', async (req, res) => {
+    const { to, subject, text, replyTo } = req.body;
+  
+    if (!to || !subject || !text) {
+      return res.status(400).send({ message: "Faltam informações obrigatórias." });
+    }
+  
+    try {
+      const transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: {
+          user,
+          pass
+        }
+      });
+  
+      const mailOptions = {
+        from: user,
+        to,
+        replyTo: replyTo || user,
+        subject,
+        text,
+      };
+  
+      const info = await transporter.sendMail(mailOptions);
+  
+      res.status(200).send({ message: "Email enviado com sucesso", info });
+    } catch (error) {
+      res.status(500).send({ message: "Erro ao enviar email", error });
+    }
+  });
 
 // Iniciar o servidor
 app.listen(PORT, () => {
