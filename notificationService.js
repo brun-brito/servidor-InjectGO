@@ -152,7 +152,7 @@ async function enviarEmailDistribuidor(externalReference, distribuidorId, titulo
     const distribuidorData = distribuidorDoc.data();
     const distribuidorEmail = distribuidorData.email;
 
-    if (!email) {
+    if (!distribuidorEmail) {
       console.log(`Nenhum email encontrado para o distribuidor com ID ${distribuidorId}.`);
       return;
     }

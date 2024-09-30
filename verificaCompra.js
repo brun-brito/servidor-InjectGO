@@ -26,7 +26,7 @@ async function atualizarStatusPagamento(externalReference, paymentId, novoStatus
                     vendaAtualizada = true;
 
                     if (novoStatus == 'solicitado')
-                        await enviarNotificacaoDistribuidor(distribuidorId, `Compra Solicitada`,`Uma nova compra foi solicitada para o produto. Clique para aprovar ou rejeitar.`);
+                        await enviarNotificacaoDistribuidor(distribuidorId, `Compra Solicitada`,`Uma nova compra foi solicitada. Clique para aprovar ou rejeitar.`);
                         await enviarEmailDistribuidor(externalReference, distribuidorId, `InjectGO - Compra Solicitada`);
                 }
             }
