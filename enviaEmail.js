@@ -1,178 +1,160 @@
 const { db, admin } = require('./firebaseConfig');
 const nodemailer = require('nodemailer');
 
+function construirHtmlProdutos(produtos) {
+  return produtos.map(produto => `
+    <div style="border-bottom: 1px solid #ddd; padding-bottom: 10px; margin-bottom: 10px;">
+      <img src="${produto.productInfo.imageUrl || 'https://via.placeholder.com/150'}" alt="${produto.productInfo.nome || 'Produto'}" style="width: 100px; height: 100px; object-fit: cover;"/>
+      <ul style="list-style: none; padding: 0;">
+        <li><strong>Produto:</strong> ${produto.productInfo.nome || 'N/A'}</li>
+        <li><strong>Categoria:</strong> ${produto.productInfo.categoria || 'N/A'}</li>
+        <li><strong>Marca:</strong> ${produto.productInfo.marca || 'N/A'}</li>
+        <li><strong>Preço:</strong> R$ ${produto.productInfo.preco ? produto.productInfo.preco.toFixed(2) : 'N/A'}</li>
+        <li><strong>Quantidade:</strong> ${produto.productInfo.quantidade || 'N/A'}</li>
+      </ul>
+    </div>
+  `).join('');
+}
+
 async function enviarEmailProfissional(externalReference, profissionalId, titulo, mensagem, status) {
-    try {
-      const profissionalRef = db.collection('users').doc(profissionalId);
-      const profissionalDoc = await profissionalRef.get();
+  try {
+    const profissionalRef = db.collection('users').doc(profissionalId);
+    const profissionalDoc = await profissionalRef.get();
   
-      if (!profissionalDoc.exists) {
-        console.log(`Profissional com ID ${profissionalId} não encontrado.`);
-        return;
-      }
+    if (!profissionalDoc.exists) {
+      console.log(`Profissional com ID ${profissionalId} não encontrado.`);
+      return;
+    }
   
-      const profissionalData = profissionalDoc.data();
-      const profissionalEmail = profissionalData.email;
+    const profissionalData = profissionalDoc.data();
+    const profissionalEmail = profissionalData.email;
   
-      if (!profissionalEmail) {
-        console.log(`Nenhum email encontrado para o profissional com ID ${profissionalId}.`);
-        return;
-      }
+    if (!profissionalEmail) {
+      console.log(`Nenhum email encontrado para o profissional com ID ${profissionalId}.`);
+      return;
+    }
   
-      const pedidoRef = profissionalRef.collection('compras').doc(externalReference);
-      const pedidoDoc = await pedidoRef.get();
+    const pedidoRef = profissionalRef.collection('compras').doc(externalReference);
+    const pedidoDoc = await pedidoRef.get();
   
-      if (!pedidoDoc.exists) {
-        console.log(`Pedido com ID ${externalReference} não encontrado.`);
-        return;
-      }
+    if (!pedidoDoc.exists) {
+      console.log(`Pedido com ID ${externalReference} não encontrado.`);
+      return;
+    }
   
     const pedido = pedidoDoc.data();
     const distribuidor = pedido.distributorInfo;
-    const produto = pedido.produtos[0]?.productInfo || {}; // Verificação de existência do produto
+    const produtos = pedido.produtos; // Lista de produtos
     const endereco = pedido.endereco_entrega;
     const envio = {
-      frete: pedido.info_entrega.frete || 0, // Define 0 como valor padrão se 'frete' não estiver presente
-      responsavel: pedido.info_entrega.responsavel || 'N/A', // Responsável por padrão se ausente
-      tempoPrevisto: pedido.info_entrega.tempo_previsto || 'N/A' // Tempo previsto padrão se ausente
+      frete: pedido.info_entrega.frete || 0,
+      responsavel: pedido.info_entrega.responsavel || 'N/A',
+      tempoPrevisto: pedido.info_entrega.tempo_previsto || 'N/A'
     };
 
-    // Adiciona verificações para o campo 'preco' e outros valores numéricos
-    const precoProduto = typeof produto.preco === 'number' ? produto.preco.toFixed(2) : 'N/A';
-    const dataCriacao = pedido.data_criacao instanceof admin.firestore.Timestamp 
-      ? new Date(pedido.data_criacao.seconds * 1000).toLocaleString() 
-      : 'Data de criação não disponível';
-    
-    // Verifica se o campo 'data_pagamento' existe e é um Timestamp
-    const dataPagamento = pedido.data_pagamento instanceof admin.firestore.Timestamp 
-      ? new Date(pedido.data_pagamento.seconds * 1000).toLocaleString() 
-      : 'Data de pagamento não disponível';
-    
+    // Adiciona a lista de produtos ao HTML
+    const htmlProdutos = construirHtmlProdutos(produtos);
 
-    // Construir o conteúdo HTML com os detalhes do pedido
-    const htmlContentAprovado = (pedido, produto, distribuidor, endereco, envio) => `
+    const htmlContentAprovado = (distribuidor, endereco, envio) => `
     <div style="font-family: Arial, sans-serif; background-color: #f8f9fa; padding: 20px;">
-    <div style="max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
-        
+      <div style="max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
         <div style="background-color: #ec3f79; padding: 10px 0; text-align: center;">
-        <img src="cid:logo" alt="InjectGO Logo" style="width: 150px;"/>
+          <img src="cid:logo" alt="InjectGO Logo" style="width: 150px;"/>
         </div>
         
         <div style="padding: 20px;">
-        <h1 style="color: #333;">Seu pedido foi aprovado!</h1>
-        <p>O pagamento foi confirmado, e o seu pedido está sendo processado.</p>
+          <h1 style="color: #333;">Seu pedido foi aprovado!</h1>
+          <p>O pagamento foi confirmado, e o seu pedido está sendo processado.</p>
 
-        <h2 style="color: #ec3f79;">Detalhes do Pedido</h2>
-        <ul style="list-style: none; padding: 0;">
-            <li><strong>Produto:</strong> ${produto.nome || 'N/A'}</li>
-            <li><strong>Categoria:</strong> ${produto.categoria || 'N/A'}</li>
-            <li><strong>Marca:</strong> ${produto.marca || 'N/A'}</li>
-            <li><strong>Preço:</strong> R$ ${produto.preco ? produto.preco.toFixed(2) : 'N/A'}</li>
-            <li><strong>Quantidade:</strong> ${produto.quantidade || 'N/A'}</li>
-        </ul>
+          <h2 style="color: #ec3f79;">Detalhes do(s) Produto(s)</h2>
+          ${htmlProdutos}
 
-        <h2 style="color: #ec3f79;">Distribuidor</h2>
-        <ul style="list-style: none; padding: 0;">
+          <h2 style="color: #ec3f79;">Distribuidor</h2>
+          <ul style="list-style: none; padding: 0;">
             <li><strong>Razão Social:</strong> ${distribuidor.razao_social || 'N/A'}</li>
             <li><strong>CNPJ:</strong> ${distribuidor.cnpj || 'N/A'}</li>
             <li><strong>E-mail:</strong> ${distribuidor.email || 'N/A'}</li>
             <li><strong>Telefone:</strong> ${distribuidor.telefone || 'N/A'}</li>
-        </ul>
+          </ul>
 
-        <h2 style="color: #ec3f79;">Endereço de Entrega</h2>
-        <ul style="list-style: none; padding: 0;">
+          <h2 style="color: #ec3f79;">Endereço de Entrega</h2>
+          <ul style="list-style: none; padding: 0;">
             <li><strong>Rua:</strong> ${endereco.rua || 'N/A'}, ${endereco.numero || 'N/A'}</li>
             <li><strong>Bairro:</strong> ${endereco.bairro || 'N/A'}</li>
             <li><strong>Cidade:</strong> ${endereco.cidade || 'N/A'} - ${endereco.uf || 'N/A'}</li>
             <li><strong>CEP:</strong> ${endereco.cep || 'N/A'}</li>
             <li><strong>Complemento:</strong> ${endereco.complemento || 'N/A'}</li>
-        </ul>
+          </ul>
 
-        <h2 style="color: #ec3f79;">Informações de Envio</h2>
-        <ul style="list-style: none; padding: 0;">
+          <h2 style="color: #ec3f79;">Informações de Envio</h2>
+          <ul style="list-style: none; padding: 0;">
             <li><strong>Frete:</strong> R$ ${envio.frete.toFixed(2)}</li>
             <li><strong>Responsável:</strong> ${envio.responsavel}</li>
             <li><strong>Tempo Previsto de Entrega:</strong> ${envio.tempoPrevisto} dias</li>
-        </ul>
+          </ul>
 
-        <h2 style="color: #ec3f79;">Informações do Pagamento</h2>
-        <ul style="list-style: none; padding: 0;">
-            <li><strong>Data de Criação:</strong> ${dataCriacao}</li>
-            <li><strong>Data de Pagamento:</strong> ${dataPagamento}</li>
-            <li><strong>ID do Pagamento:</strong> ${pedido.payment_id || 'N/A'}</li>
-        </ul>
-
-        <p style="margin-top: 20px;">
+          <p style="margin-top: 20px;">
             <a href="injectgo.com.br" style="display: inline-block; padding: 10px 15px; background-color: #ec3f79; color: #fff; text-decoration: none; border-radius: 5px;">Ver Pedido no App</a>
-        </p>
+          </p>
         </div>
 
         <div style="background-color: #f1f1f1; padding: 10px; text-align: center;">
-        <p style="font-size: 12px; color: #888;">InjectGO © 2024. Todos os direitos reservados.</p>
+          <p style="font-size: 12px; color: #888;">InjectGO © 2024. Todos os direitos reservados.</p>
         </div>
-    </div>
+      </div>
     </div>
     `;
 
-    const htmlContentRejeitado = (produto, distribuidor, endereco, envio, reembolsoInfo) => `
-    <div style="font-family: Arial, sans-serif; background-color: #f8f9fa; padding: 20px;">
+    const htmlContentRejeitado = (distribuidor, reembolsoInfo) => `
+      <div style="font-family: Arial, sans-serif; background-color: #f8f9fa; padding: 20px;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
         
-        <div style="background-color: #ec3f79; padding: 10px 0; text-align: center;">
+          <div style="background-color: #ec3f79; padding: 10px 0; text-align: center;">
             <img src="cid:logo" alt="InjectGO Logo" style="width: 150px;"/>
-        </div>
-        
-        <div style="padding: 20px;">
+          </div>
+          
+          <div style="padding: 20px;">
             <h1 style="color: #333;">Seu pedido foi rejeitado</h1>
             <p>Infelizmente, seu pedido foi rejeitado e o reembolso foi processado.</p>
 
-            <h2 style="color: #ec3f79;">Detalhes do Pedido</h2>
-            <ul style="list-style: none; padding: 0;">
-            <li><strong>Produto:</strong> ${produto.nome || 'N/A'}</li>
-            <li><strong>Categoria:</strong> ${produto.categoria || 'N/A'}</li>
-            <li><strong>Marca:</strong> ${produto.marca || 'N/A'}</li>
-            <li><strong>Preço:</strong> R$ ${produto.preco ? produto.preco.toFixed(2) : 'N/A'}</li>
-            <li><strong>Quantidade:</strong> ${produto.quantidade || 'N/A'}</li>
-            </ul>
+            <h2 style="color: #ec3f79;">Detalhes do(s) Produto(s)</h2>
+            ${htmlProdutos}
 
             <h2 style="color: #ec3f79;">Distribuidor</h2>
             <ul style="list-style: none; padding: 0;">
-            <li><strong>Razão Social:</strong> ${distribuidor.razao_social || 'N/A'}</li>
-            <li><strong>CNPJ:</strong> ${distribuidor.cnpj || 'N/A'}</li>
-            <li><strong>E-mail:</strong> ${distribuidor.email || 'N/A'}</li>
-            <li><strong>Telefone:</strong> ${distribuidor.telefone || 'N/A'}</li>
+              <li><strong>Razão Social:</strong> ${distribuidor.razao_social || 'N/A'}</li>
+              <li><strong>CNPJ:</strong> ${distribuidor.cnpj || 'N/A'}</li>
+              <li><strong>E-mail:</strong> ${distribuidor.email || 'N/A'}</li>
+              <li><strong>Telefone:</strong> ${distribuidor.telefone || 'N/A'}</li>
             </ul>
 
             <h2 style="color: #ec3f79;">Informações de Reembolso</h2>
             <ul style="list-style: none; padding: 0;">
-            <li><strong>ID do Reembolso:</strong> ${reembolsoInfo.refund_id || 'N/A'}</li>
-            <li><strong>Data do Reembolso:</strong> ${new Date(reembolsoInfo.date_created).toLocaleString() || 'N/A'}</li>
-            <li><strong>Status do Reembolso:</strong> ${reembolsoInfo.status || 'N/A'}</li>
+              <li><strong>ID do Reembolso:</strong> ${reembolsoInfo.refund_id || 'N/A'}</li>
+              <li><strong>Data do Reembolso:</strong> ${new Date(reembolsoInfo.date_created).toLocaleString() || 'N/A'}</li>
+              <li><strong>Status do Reembolso:</strong> ${reembolsoInfo.status || 'N/A'}</li>
             </ul>
 
             <p>O reembolso foi processado e você deverá receber o valor em sua conta nos próximos dias.</p>
 
             <p style="margin-top: 20px;">
-            <a href="injectgo.com.br" style="display: inline-block; padding: 10px 15px; background-color: #ec3f79; color: #fff; text-decoration: none; border-radius: 5px;">Ver Pedido no App</a>
+              <a href="injectgo.com.br" style="display: inline-block; padding: 10px 15px; background-color: #ec3f79; color: #fff; text-decoration: none; border-radius: 5px;">Ver Pedido no App</a>
             </p>
-        </div>
+          </div>
 
-        <div style="background-color: #f1f1f1; padding: 10px; text-align: center;">
+          <div style="background-color: #f1f1f1; padding: 10px; text-align: center;">
             <p style="font-size: 12px; color: #888;">InjectGO © 2024. Todos os direitos reservados.</p>
+          </div>
         </div>
-        </div>
-    </div>
+      </div>
     `;
 
     let htmlContent;
     if (status === 'aprovado') {
-        htmlContent = htmlContentAprovado(pedido, produto, distribuidor, endereco, envio);
+      htmlContent = htmlContentAprovado(pedido, produtos, distribuidor, endereco, envio);
     } else if (status === 'rejeitado') {
-        const reembolsoInfo = pedido.reembolsoInfo || {};
-        htmlContent = htmlContentRejeitado(produto, distribuidor, endereco, envio, reembolsoInfo);
-    } else {
-        console.log(`Status desconhecido: ${status}`);
-        return;
+      const reembolsoInfo = pedido.reembolsoInfo || {};
+      htmlContent = htmlContentRejeitado(distribuidor, reembolsoInfo);
     }
 
     const transporter = nodemailer.createTransport({
@@ -202,8 +184,6 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
     return { success: false, error: error.message };
   }
 }
-  
-
   
 async function enviarEmailDistribuidor(externalReference, distribuidorId, titulo) {
     try {
@@ -236,9 +216,15 @@ async function enviarEmailDistribuidor(externalReference, distribuidorId, titulo
   
       const comprador = pedido.buyerInfo;
       const endereco = pedido.endereco_entrega;
-      const produto = pedido.produtos[0].productInfo;
       const envio = pedido.info_envio;
-  
+      const produtosHtml = pedido.produtos.map(produto => `
+        <li>
+          <img src="${produto.productInfo.imageUrl}" alt="${produto.productInfo.nome}" style="width: 100px; height: 100px; object-fit: cover;"/> <br/>
+          <strong>Produto:</strong> ${produto.productInfo.nome} <br/>
+          <strong>Preço:</strong> R$ ${produto.productInfo.preco.toFixed(2)} <br/>
+          <strong>Quantidade:</strong> ${produto.productInfo.quantidade} <br/>
+        </li>
+      `).join('');
   
       // Construir o conteúdo HTML estilizado com os detalhes do pedido
       const htmlContent = `
@@ -251,13 +237,15 @@ async function enviarEmailDistribuidor(externalReference, distribuidorId, titulo
             
             <div style="padding: 20px;">
               <h1 style="color: #333;">Compra Solicitada</h1>
-              <p>O pedido de ID <strong>${pedido.id}</strong> foi solicitado.</p>
+              <p>O pedido de ID <strong>${pedido.payment_id}</strong> foi solicitado.</p>
               
-              <h2 style="color: #ec3f79;">Detalhes do Pedido</h2>
+              <h2 style="color: #ec3f79;">Detalhes do(s) Produto(s)</h2>
               <ul style="list-style: none; padding: 0;">
-                <li><strong>Produto:</strong> ${produto.nome}</li>
-                <li><strong>Preço:</strong> R$ ${produto.preco}</li>
-                <li><strong>Quantidade:</strong> ${produto.quantidade}</li>
+                ${produtosHtml}
+              </ul>
+
+              <h2 style="color: #ec3f79;">Detalhes do Comprador</h2>
+              <ul style="list-style: none; padding: 0;">
                 <li><strong>Comprador:</strong> ${comprador.nome} (${comprador.email})</li>
                 <li><strong>Telefone:</strong> ${comprador.telefone}</li>
               </ul>

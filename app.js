@@ -145,8 +145,8 @@ app.get('/failure', async (req, res) => {
             return res.status(400).send('Parâmetros inválidos.');
         }
 
-        // Atualiza o status para 'rejeitado' em caso de falha
-        await atualizarStatusPagamento(external_reference, payment_id, 'rejeitado');
+        // Atualiza o status para 'falha-pagamento' em caso de falha
+        await atualizarStatusPagamento(external_reference, payment_id, 'falha-pagamento');
 
         // Retorna uma página HTML estilizada para falha
         res.status(200).send(`
@@ -324,50 +324,68 @@ app.post('/send-email', async (req, res) => {
     }
   });
 
-  app.post('/enviar-email-status', async (req, res) => {
-    const { externalReference, profissionalId, status } = req.body;
+app.post('/enviar-email-profissional', async (req, res) => {
+  const { externalReference, profissionalId, status } = req.body;
 
-    // Validação dos parâmetros obrigatórios
-    if (!externalReference || !profissionalId || !status) {
-      return res.status(400).json({ error: 'Os parâmetros externalReference, profissionalId e status são obrigatórios.' });
+  // Validação dos parâmetros obrigatórios
+  if (!externalReference || !profissionalId || !status) {
+    return res.status(400).json({ error: 'Os parâmetros externalReference, profissionalId e status são obrigatórios.' });
+  }
+
+  try {
+    let titulo;
+    let mensagem;
+
+    // Definir o título e mensagem do e-mail com base no status
+    switch (status) {
+      case 'aprovado':
+        titulo = 'Seu pedido foi aprovado!';
+        mensagem = 'Seu pedido foi aprovado e está em processo de separação.';
+        break;
+      case 'rejeitado':
+        titulo = 'Seu pedido foi rejeitado';
+        mensagem = 'Seu pedido foi rejeitado pelo distribuidor. Um reembolso foi processado.';
+        break;
+      case 'reembolsado':
+        titulo = 'Reembolso realizado';
+        mensagem = 'O reembolso do seu pedido foi processado com sucesso.';
+        break;
+      default:
+        return res.status(400).json({ error: 'Status inválido. Os valores permitidos são: aprovado, rejeitado, reembolsado.' });
     }
 
-    try {
-      let titulo;
-      let mensagem;
+    // Tenta enviar o e-mail
+    const emailResult = await enviarEmailProfissional(externalReference, profissionalId, titulo, mensagem, status);
 
-      // Definir o título e mensagem do e-mail com base no status
-      switch (status) {
-        case 'aprovado':
-          titulo = 'Seu pedido foi aprovado!';
-          mensagem = 'Seu pedido foi aprovado e está em processo de separação.';
-          break;
-        case 'rejeitado':
-          titulo = 'Seu pedido foi rejeitado';
-          mensagem = 'Seu pedido foi rejeitado. Um reembolso foi processado.';
-          break;
-        case 'reembolsado':
-          titulo = 'Reembolso realizado';
-          mensagem = 'O reembolso do seu pedido foi processado com sucesso.';
-          break;
-        default:
-          return res.status(400).json({ error: 'Status inválido. Os valores permitidos são: aprovado, rejeitado, reembolsado.' });
-      }
-
-      // Tenta enviar o e-mail
-      const emailResult = await enviarEmailProfissional(externalReference, profissionalId, titulo, mensagem, status);
-
-      // Verifica se o e-mail foi enviado corretamente (baseado em possíveis respostas da função `enviarEmailProfissional`)
-      if (emailResult.success) {
-        res.status(200).json({ message: 'E-mail enviado com sucesso.' });
-      } else {
-        res.status(500).json({ error: emailResult.error || 'Erro desconhecido ao enviar o e-mail.' });
-      }
-
-    } catch (error) {
-      console.error('Erro ao enviar e-mail:', error);
-      res.status(500).json({ error: `Ocorreu um erro ao enviar o e-mail: ${error.message}` });
+    // Verifica se o e-mail foi enviado corretamente (baseado em possíveis respostas da função `enviarEmailProfissional`)
+    if (emailResult.success) {
+      res.status(200).json({ message: 'E-mail enviado com sucesso.' });
+    } else {
+      res.status(500).json({ error: emailResult.error || 'Erro desconhecido ao enviar o e-mail.' });
     }
+
+  } catch (error) {
+    console.error('Erro ao enviar e-mail:', error);
+    res.status(500).json({ error: `Ocorreu um erro ao enviar o e-mail: ${error.message}` });
+  }
+});
+
+app.post('/enviar-email-distribuidor', async (req, res) => {
+  const { externalReference, distribuidorId, titulo } = req.body;
+
+  // Verifica se os parâmetros obrigatórios estão presentes
+  if (!externalReference || !distribuidorId || !titulo) {
+    return res.status(400).json({ error: 'Os campos externalReference, distribuidorId e titulo são obrigatórios.' });
+  }
+
+  try {
+    // Chama a função de envio de e-mail
+    await enviarEmailDistribuidor(externalReference, distribuidorId, titulo);
+    res.status(200).json({ message: 'E-mail enviado com sucesso!' });
+  } catch (error) {
+    console.error('Erro ao enviar e-mail:', error);
+    res.status(500).json({ error: 'Erro ao enviar e-mail' });
+  }
 });
 
 // Iniciar o servidor
