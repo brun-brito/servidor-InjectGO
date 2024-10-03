@@ -16,7 +16,7 @@ function construirHtmlProdutos(produtos) {
   `).join('');
 }
 
-async function enviarEmailProfissional(externalReference, profissionalId, titulo, mensagem, status) {
+async function enviarEmailProfissional(externalReference, profissionalId, titulo, status) {
   try {
     const profissionalRef = db.collection('users').doc(profissionalId);
     const profissionalDoc = await profissionalRef.get();
@@ -49,7 +49,7 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
     const envio = {
       frete: pedido.info_entrega.frete || 0,
       responsavel: pedido.info_entrega.responsavel || 'N/A',
-      tempoPrevisto: pedido.info_entrega.tempo_previsto || 'N/A'
+      tempoPrevisto: pedido.info_entrega.tempo_previsto > 0 ? pedido.info_entrega.tempo_previsto : 'Não especificado'
     };
 
     // Adiciona a lista de produtos ao HTML
@@ -66,10 +66,10 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
           <h1 style="color: #333;">Seu pedido foi aprovado!</h1>
           <p>O pagamento foi confirmado, e o seu pedido está sendo processado.</p>
 
-          <h2 style="color: #ec3f79;">Detalhes do(s) Produto(s)</h2>
+          <h2 style="color: #ec3f79;">Pedido:</h2>
           ${htmlProdutos}
 
-          <h2 style="color: #ec3f79;">Distribuidor</h2>
+          <h2 style="color: #ec3f79;">Distribuidor:</h2>
           <ul style="list-style: none; padding: 0;">
             <li><strong>Razão Social:</strong> ${distribuidor.razao_social || 'N/A'}</li>
             <li><strong>CNPJ:</strong> ${distribuidor.cnpj || 'N/A'}</li>
@@ -77,7 +77,7 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
             <li><strong>Telefone:</strong> ${distribuidor.telefone || 'N/A'}</li>
           </ul>
 
-          <h2 style="color: #ec3f79;">Endereço de Entrega</h2>
+          <h2 style="color: #ec3f79;">Endereço de Entrega:</h2>
           <ul style="list-style: none; padding: 0;">
             <li><strong>Rua:</strong> ${endereco.rua || 'N/A'}, ${endereco.numero || 'N/A'}</li>
             <li><strong>Bairro:</strong> ${endereco.bairro || 'N/A'}</li>
@@ -86,7 +86,7 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
             <li><strong>Complemento:</strong> ${endereco.complemento || 'N/A'}</li>
           </ul>
 
-          <h2 style="color: #ec3f79;">Informações de Envio</h2>
+          <h2 style="color: #ec3f79;">Informações de Envio:</h2>
           <ul style="list-style: none; padding: 0;">
             <li><strong>Frete:</strong> R$ ${envio.frete.toFixed(2)}</li>
             <li><strong>Responsável:</strong> ${envio.responsavel}</li>
@@ -117,10 +117,10 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
             <h1 style="color: #333;">Seu pedido foi rejeitado</h1>
             <p>Infelizmente, seu pedido foi rejeitado e o reembolso foi processado.</p>
 
-            <h2 style="color: #ec3f79;">Detalhes do(s) Produto(s)</h2>
+            <h2 style="color: #ec3f79;">Pedido:</h2>
             ${htmlProdutos}
 
-            <h2 style="color: #ec3f79;">Distribuidor</h2>
+            <h2 style="color: #ec3f79;">Distribuidor:</h2>
             <ul style="list-style: none; padding: 0;">
               <li><strong>Razão Social:</strong> ${distribuidor.razao_social || 'N/A'}</li>
               <li><strong>CNPJ:</strong> ${distribuidor.cnpj || 'N/A'}</li>
@@ -128,7 +128,7 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
               <li><strong>Telefone:</strong> ${distribuidor.telefone || 'N/A'}</li>
             </ul>
 
-            <h2 style="color: #ec3f79;">Informações de Reembolso</h2>
+            <h2 style="color: #ec3f79;">Informações de Reembolso:</h2>
             <ul style="list-style: none; padding: 0;">
               <li><strong>ID do Reembolso:</strong> ${reembolsoInfo.refund_id || 'N/A'}</li>
               <li><strong>Data do Reembolso:</strong> ${new Date(reembolsoInfo.date_created).toLocaleString() || 'N/A'}</li>
@@ -149,12 +149,65 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
       </div>
     `;
 
+    const htmlContentEnviado = (distribuidor, endereco, envio, codigoRastreio) => `
+    <div style="font-family: Arial, sans-serif; background-color: #f8f9fa; padding: 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
+        <div style="background-color: #ec3f79; padding: 10px 0; text-align: center;">
+          <img src="cid:logo" alt="InjectGO Logo" style="width: 150px;"/>
+        </div>
+        
+        <div style="padding: 20px;">
+          <h1 style="color: #333;">Seu pedido foi enviado!</h1>
+          <p>O seu pedido foi enviado e está a caminho.</p>
+
+          <h2 style="color: #ec3f79;">Pedido:</h2>
+          ${htmlProdutos}
+
+          <h2 style="color: #ec3f79;">Distribuidor:</h2>
+          <ul style="list-style: none; padding: 0;">
+            <li><strong>Razão Social:</strong> ${distribuidor.razao_social || 'N/A'}</li>
+            <li><strong>CNPJ:</strong> ${distribuidor.cnpj || 'N/A'}</li>
+            <li><strong>E-mail:</strong> ${distribuidor.email || 'N/A'}</li>
+            <li><strong>Telefone:</strong> ${distribuidor.telefone || 'N/A'}</li>
+          </ul>
+
+          <h2 style="color: #ec3f79;">Endereço de Entrega:</h2>
+          <ul style="list-style: none; padding: 0;">
+            <li><strong>Rua:</strong> ${endereco.rua || 'N/A'}, ${endereco.numero || 'N/A'}</li>
+            <li><strong>Bairro:</strong> ${endereco.bairro || 'N/A'}</li>
+            <li><strong>Cidade:</strong> ${endereco.cidade || 'N/A'} - ${endereco.uf || 'N/A'}</li>
+            <li><strong>CEP:</strong> ${endereco.cep || 'N/A'}</li>
+            <li><strong>Complemento:</strong> ${endereco.complemento || 'N/A'}</li>
+          </ul>
+
+          <h2 style="color: #ec3f79;">Informações de Envio:</h2>
+          <ul style="list-style: none; padding: 0;">
+            <li><strong>Frete:</strong> R$ ${envio.frete.toFixed(2)}</li>
+            <li><strong>Responsável pelo envio:</strong> ${envio.responsavel}</li>
+            <li><strong>Tempo Previsto de Entrega:</strong> ${envio.tempoPrevisto} dias</li>
+            <li><strong>Código de Rastreio:</strong> ${codigoRastreio || 'N/A'}</li>
+          </ul>
+
+          <p style="margin-top: 20px;">
+            <a href="injectgo.com.br" style="display: inline-block; padding: 10px 15px; background-color: #ec3f79; color: #fff; text-decoration: none; border-radius: 5px;">Ver Pedido no App</a>
+          </p>
+          </div>
+
+        <div style="background-color: #f1f1f1; padding: 10px; text-align: center;">
+          <p style="font-size: 12px; color: #888;">InjectGO © 2024. Todos os direitos reservados.</p>
+        </div>
+      </div>
+    </div>
+    `;
+
     let htmlContent;
     if (status === 'aprovado') {
       htmlContent = htmlContentAprovado(pedido, produtos, distribuidor, endereco, envio);
     } else if (status === 'rejeitado') {
       const reembolsoInfo = pedido.reembolsoInfo || {};
       htmlContent = htmlContentRejeitado(distribuidor, reembolsoInfo);
+    } else if (status === 'enviado') {
+      htmlContent = htmlContentEnviado(distribuidor, endereco, envio, 'codigoRastreio'); /** COLOCAR CODIGO REAL */
     }
 
     const transporter = nodemailer.createTransport({
@@ -226,7 +279,7 @@ async function enviarEmailDistribuidor(externalReference, distribuidorId, titulo
         </li>
       `).join('');
   
-      // Construir o conteúdo HTML estilizado com os detalhes do pedido
+      // Construir o conteúdo HTML estilizado com os pedido:
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; background-color: #f8f9fa; padding: 20px;">
           <div style="max-width: 600px; margin: 0 auto; background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);">
@@ -239,18 +292,18 @@ async function enviarEmailDistribuidor(externalReference, distribuidorId, titulo
               <h1 style="color: #333;">Compra Solicitada</h1>
               <p>O pedido de ID <strong>${pedido.payment_id}</strong> foi solicitado.</p>
               
-              <h2 style="color: #ec3f79;">Detalhes do(s) Produto(s)</h2>
+              <h2 style="color: #ec3f79;">Pedido:</h2>
               <ul style="list-style: none; padding: 0;">
                 ${produtosHtml}
               </ul>
 
-              <h2 style="color: #ec3f79;">Detalhes do Comprador</h2>
+              <h2 style="color: #ec3f79;">Comprador:</h2>
               <ul style="list-style: none; padding: 0;">
                 <li><strong>Comprador:</strong> ${comprador.nome} (${comprador.email})</li>
                 <li><strong>Telefone:</strong> ${comprador.telefone}</li>
               </ul>
               
-              <h2 style="color: #ec3f79;">Endereço de Entrega</h2>
+              <h2 style="color: #ec3f79;">Endereço de Entrega:</h2>
               <ul style="list-style: none; padding: 0;">
                 <li><strong>Rua:</strong> ${endereco.rua}, ${endereco.numero}</li>
                 <li><strong>Bairro:</strong> ${endereco.bairro}</li>
@@ -259,7 +312,7 @@ async function enviarEmailDistribuidor(externalReference, distribuidorId, titulo
                 <li><strong>Complemento:</strong> ${endereco.complemento}</li>
               </ul>
   
-              <h2 style="color: #ec3f79;">Informações de Envio</h2>
+              <h2 style="color: #ec3f79;">Informações de Envio:</h2>
               <ul style="list-style: none; padding: 0;">
                 <li><strong>Responsável:</strong> ${envio.responsavel}</li>
                 <li><strong>Frete:</strong> R$ ${envio.frete}</li>
@@ -300,7 +353,7 @@ async function enviarEmailDistribuidor(externalReference, distribuidorId, titulo
       }
       
       const info = await transporter.sendMail(mailOptions);
-      console.log('E-mail enviado com uscesso para ', info.accepted);
+      console.log('E-mail enviado com sucesso para ', info.accepted);
     } catch (error) {
       console.error('Erro ao enviar e-mail:', error);
     }

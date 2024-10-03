@@ -2,10 +2,11 @@ require('dotenv').config();
 const express = require('express');
 const cron = require('node-cron');
 const { verificarPagamentosDistribuidores, verificarEAtualizarTokens } = require('./paymentService');
-const { enviarNotificacaoDistribuidor, enviarNotificacao, enviarNotificacaoProfissional } = require('./notificationService');
+const { enviarNotificacaoProfissional } = require('./notificationService');
 const { enviarEmailProfissional, enviarEmailDistribuidor} = require('./enviaEmail');
 const { db, admin } = require('./firebaseConfig');
-const { atualizarStatusPagamento } = require('./verificaCompra');
+const { enviarPedido } = require('./enviaPedido');
+const { atualizarStatusPagamento, atualizaVencimento } = require('./verificaCompra');
 const nodemailer = require('nodemailer');
 const app = express();
 
@@ -68,8 +69,8 @@ app.get('/success', async (req, res) => {
             return res.status(400).send('Parâmetros inválidos.');
         }
 
-        // Atualiza a coleção 'distribuidores' e 'users' para o pedido
-        await atualizarStatusPagamento(external_reference, payment_id, 'solicitado');
+        // await atualizarStatusPagamento(external_reference, payment_id, 'solicitado');
+        await atualizaVencimento(external_reference);
         res.status(200).send(`
             <!DOCTYPE html>
             <html lang="pt-BR">
@@ -215,68 +216,15 @@ app.get('/failure', async (req, res) => {
     }
 });
 
-app.post('/enviar-notificacao', async (req, res) => {
-    const { titulo, mensagem, userId, tipoUsuario } = req.body;
-  
-    // Validação básica dos parâmetros
-    if (!titulo || !mensagem || !userId || !tipoUsuario) {
-      return res.status(400).json({ error: 'Parâmetros incompletos. Certifique-se de fornecer título, mensagem, userId e tipoUsuario.' });
-    }
-  
-    try {
-      // Chamar a função para enviar notificação
-      const result = await enviarNotificacao(titulo, mensagem, userId, tipoUsuario);
-      
-      // Verificar se houve algum erro ou resultado inesperado
-      if (result === 'Tipo de usuário inválido') {
-        return res.status(400).json({ error: 'Tipo de usuário inválido. Use "distribuidor" ou "profissional".' });
-      }
-  
-      return res.status(200).json({ message: 'Notificação enviada com sucesso.' });
-    } catch (error) {
-      console.error('Erro ao enviar notificação:', error);
-      return res.status(500).json({ error: 'Erro ao enviar notificação.' });
-    }
-  });
-
-  app.post('/enviar-notificacao2', async (req, res) => {
-    const { token, title, body, route, distribuidorId, email, initialTab } = req.body;
-
-  if (!token || !title || !body || !route) {
-    return res.status(400).json({ message: 'Token, título, corpo e rota são obrigatórios.' });
-  }
-
-  const message = {
-    notification: {
-      title: title,
-      body: body,
-    },
-    data: {
-      route: route,
-      distribuidorId: distribuidorId || '',
-      email: email || '',
-      initialTab: initialTab || '0'
-    },
-    token: token
-  };
-
-  try {
-    const response = await admin.messaging().send(message);
-    return res.status(200).json({ message: 'Notificação enviada com sucesso!', response });
-  } catch (error) {
-    return res.status(500).json({ message: 'Erro ao enviar notificação', error: error.toString() });
-  }
-});
-
 app.post('/enviar-notificacao-profissional', async (req, res) => {
-    const { email, titulo, mensagem, statusVenda } = req.body;
+    const { email, titulo, mensagem } = req.body;
 
-    if (!email || !titulo || !mensagem || !statusVenda) {
+    if (!email || !titulo || !mensagem ) {
         return res.status(400).json({ error: 'Parâmetros ausentes' });
     }
 
     try {
-        await enviarNotificacaoProfissional(email, titulo, mensagem, statusVenda);
+        await enviarNotificacaoProfissional(email, titulo, mensagem);
         return res.status(200).json({ success: 'Notificação enviada para o profissional.' });
     } catch (error) {
         console.error('Erro ao enviar notificação para o profissional:', error);
@@ -385,6 +333,49 @@ app.post('/enviar-email-distribuidor', async (req, res) => {
   } catch (error) {
     console.error('Erro ao enviar e-mail:', error);
     res.status(500).json({ error: 'Erro ao enviar e-mail' });
+  }
+});
+
+app.post('/enviar-pedido', async (req, res) => {
+  try {
+      const { distribuidorId, pedidoId } = req.body;
+
+      if (!distribuidorId || !pedidoId) {
+          return res.status(400).json({
+              sucesso: false,
+              mensagem: 'Os campos distribuidorId e pedidoId são obrigatórios.'
+          });
+      }
+
+      await enviarPedido(distribuidorId, pedidoId);
+
+      return res.status(200).json({
+          sucesso: true,
+          mensagem: `Pedido ${pedidoId} enviado com sucesso!`,
+      });
+
+  } catch (error) {
+      console.error('Erro ao aprovar o pedido:', error);
+
+      if (error.message.includes('Pedido não encontrado')) {
+          return res.status(404).json({
+              sucesso: false,
+              mensagem: `Pedido ${req.body.pedidoId} não encontrado.`,
+          });
+      }
+
+      if (error.message.includes('Comprador não encontrado')) {
+          return res.status(404).json({
+              sucesso: false,
+              mensagem: `Comprador não encontrado para o e-mail fornecido no pedido.`,
+          });
+      }
+
+      return res.status(500).json({
+          sucesso: false,
+          mensagem: 'Erro interno ao aprovar o pedido.',
+          detalhes: error.message || 'Erro desconhecido',
+      });
   }
 });
 
