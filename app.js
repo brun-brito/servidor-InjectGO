@@ -5,7 +5,7 @@ const { verificarPagamentosDistribuidores, verificarEAtualizarTokens } = require
 const { enviarNotificacaoProfissional } = require('./notificationService');
 const { enviarEmailProfissional, enviarEmailDistribuidor} = require('./enviaEmail');
 const { db, admin } = require('./firebaseConfig');
-const { enviarPedido } = require('./enviaPedido');
+const { aprovaPedido } = require('./aprovaPedido');
 const { atualizarStatusPagamento, atualizaVencimento } = require('./verificaCompra');
 const nodemailer = require('nodemailer');
 const app = express();
@@ -336,7 +336,7 @@ app.post('/enviar-email-distribuidor', async (req, res) => {
   }
 });
 
-app.post('/enviar-pedido', async (req, res) => {
+app.post('/aprovar-pedido', async (req, res) => {
   try {
       const { distribuidorId, pedidoId } = req.body;
 
@@ -347,7 +347,7 @@ app.post('/enviar-pedido', async (req, res) => {
           });
       }
 
-      await enviarPedido(distribuidorId, pedidoId);
+      await aprovaPedido(distribuidorId, pedidoId);
 
       return res.status(200).json({
           sucesso: true,

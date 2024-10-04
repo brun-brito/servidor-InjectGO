@@ -10,7 +10,7 @@
     const { enviarNotificacaoProfissional } = require('./notificationService'); 
     const { enviarEmailProfissional } = require('./enviaEmail')
     
-    async function enviarPedido(distribuidorId, pedidoId) {    
+    async function aprovaPedido(distribuidorId, pedidoId) {    
         try {
             const pedidoRef = admin.firestore()
                 .collection('distribuidores')
@@ -51,7 +51,7 @@
     
             await pedidoRef.update({
                 tempo_maximo_envio: admin.firestore.Timestamp.fromDate(prazoMaximoEnvio),
-                status: 'enviado'
+                status: 'preparando'
             });
 
             const userSnapshot = await admin.firestore()
@@ -77,17 +77,17 @@
             
             await compraRef.update({
                 tempo_maximo_envio: admin.firestore.Timestamp.fromDate(prazoMaximoEnvio),
-                status: 'enviado' 
+                status: 'preparando' 
             });
     
             await enviarNotificacaoProfissional(emailComprador, 
-                'Pedido enviado!', 
-                `Uhuul! Seu pedido ${pedidoId} está em processo de envio.`
+                'Pedido Aprovado!', 
+                `Uhuul! Seu pedido ${pedidoId} foi aprovado e está em processo de preparo.`
             );
     
-            await enviarEmailProfissional(pedidoId, buyerId, 'Pedido enviado!', 'enviado');
+            await enviarEmailProfissional(pedidoId, buyerId, 'Pedido aprovado!', 'aprovado');
     
-            console.log(`[SUCCESS] Pedido ${pedidoId} enviado com sucesso. Prazo de envio: ${prazoMaximoEnvio}`);
+            console.log(`[SUCCESS] Pedido ${pedidoId} aprovado com sucesso. Prazo de envio: ${prazoMaximoEnvio}`);
             
         } catch (error) {
             // Log detalhado do erro
@@ -97,5 +97,5 @@
     }
     
     module.exports = {
-        enviarPedido
+        aprovaPedido
     };

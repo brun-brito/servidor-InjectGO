@@ -67,19 +67,54 @@ const addBusinessHours = (startDate, hoursToAdd) => {
     return date;
 };
 
+const adicionar24HorasNormais = (dataUTC) => {
+    let dateBrasilia = converterParaHorarioBrasilia(dataUTC);
+    dateBrasilia.setUTCHours(dateBrasilia.getUTCHours() + 24);
+
+    if (isWeekend(dateBrasilia)) {
+        dateBrasilia = skipWeekend(dateBrasilia);
+    }
+
+    return converterParaUTC(dateBrasilia);
+};
+
+const isWeekend = (date) => {
+    const day = date.getUTCDay();
+    return day === 6 || day === 0;
+};
+
+const skipWeekend = (date) => {
+    const day = date.getUTCDay();
+    if (day === 6) { // Sábado
+        date.setUTCDate(date.getUTCDate() + 2);
+    } else if (day === 0) { // Domingo
+        date.setUTCDate(date.getUTCDate() + 1);
+    }
+    return date;
+};
+
+function converterParaHorarioBrasilia(dateUTC) {
+    return new Date(dateUTC.getTime() - 3 * 60 * 60 * 1000);
+}
+
+function converterParaUTC(dateBrasilia) {
+    return new Date(dateBrasilia.getTime() + 3 * 60 * 60 * 1000);
+}
+
 // Função para formatar a data no formato desejado
 const formatDate = (date) => format(date, "dd/MM/yyyy, HH:mm:ss");
 
 // Exemplo de uso:
-const dataAtual = new Date('2024-10-04T07:20:00.000');
-console.log((dataAtual));
-console.log((admin.firestore.Timestamp.fromDate(dataAtual).toDate()));
-const horasAdicionadas = addBusinessHours(dataAtual, 2);
-console.log((horasAdicionadas));
-console.log((admin.firestore.Timestamp.fromDate(horasAdicionadas).toDate()));
+// const dataAtual = new Date('2024-10-04T07:20:00.000');
+// console.log((dataAtual));
+// console.log((admin.firestore.Timestamp.fromDate(dataAtual).toDate()));
+// const horasAdicionadas = addBusinessHours(dataAtual, 2);
+// console.log((horasAdicionadas));
+// console.log((admin.firestore.Timestamp.fromDate(horasAdicionadas).toDate()));
 
 
 module.exports = {
     addBusinessHours,
     formatDate,
+    adicionar24HorasNormais
 };
