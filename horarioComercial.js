@@ -1,111 +1,85 @@
 const { format } = require('date-fns');
+const { admin, db } = require('./firebaseConfig');
 
-// Função para verificar se é horário comercial (entre 08:00 e 18:00)
+// Função para verificar se é horário comercial (08:00 a 18:00 no horário de Brasília)
 const isBusinessHours = (date) => {
-    const hour = date.getHours();
+    const hour = date.getUTCHours() - 3; // Ajuste para o UTC-3 (horário de Brasília)
     return hour >= 8 && hour < 18;
 };
 
 // Função para verificar se é dia útil (segunda a sexta)
 const isBusinessDay = (date) => {
-    const day = date.getDay();
+    const day = date.getUTCDay(); // UTC-based
     return day >= 1 && day <= 5; // Segunda (1) a sexta (5)
 };
 
-// Função para avançar para o próximo dia útil, preservando os minutos
+// Função para avançar para o próximo dia útil, preservando os minutos no fuso horário de Brasília
 const getNextBusinessDay = (date) => {
     do {
-        date.setDate(date.getDate() + 1);
+        date.setUTCDate(date.getUTCDate() + 1);
     } while (!isBusinessDay(date));
-    date.setHours(8); // Ajusta a hora para 08:00, mas mantém os minutos
+
+    date.setUTCHours(8 + 3, 0, 0, 0); // Ajusta a hora para 08:00 no horário de Brasília (UTC-3)
     return date;
 };
 
-// Função para ajustar para 08:00 do mesmo dia se for antes das 08:00, preservando os minutos
+// Função para ajustar para 08:00 do mesmo dia se for antes das 08:00 no horário de Brasília
 const adjustForBusinessStart = (date) => {
-    if (date.getHours() < 8) {
-        date.setHours(8, 0, 0, 0); // Ajusta para 08:00 do mesmo dia
+    const hour = date.getUTCHours() - 3; // Ajusta para UTC-3
+    if (hour < 8) {
+        date.setUTCHours(8 + 3, 0, 0, 0); // Ajusta para 08:00 no horário de Brasília
     }
     return date;
 };
 
-// Função para adicionar horas úteis, preservando os minutos corretamente
+// Função para adicionar horas úteis, preservando os minutos corretamente no fuso horário de Brasília
 const addBusinessHours = (startDate, hoursToAdd) => {
-    let date = new Date(startDate);
+    let date = new Date(startDate.getTime());
     const initialMinutes = date.getMinutes(); // Preserva os minutos
 
-    if (date.getHours() >= 18) {
+    // Se o pedido for feito entre 18:00 e 23:59 no horário de Brasília
+    if (date.getUTCHours() - 3 >= 18) {
         date = getNextBusinessDay(date);
-        date.setMinutes(0); // Zera os minutos se estiver após o expediente
-        date.setSeconds(0);
+        date.setUTCMinutes(0); // Zera os minutos
+        date.setUTCSeconds(0);
     }
 
-    if (date.getHours() < 8) {
+    // Se o pedido for feito entre 00:00 e 07:59 no horário de Brasília
+    if (date.getUTCHours() - 3 < 8) {
         date = adjustForBusinessStart(date);
     }
 
     while (hoursToAdd > 0) {
-        let hoursLeftToday = 18 - date.getHours(); // Horas restantes no dia útil (até as 18:00)
+        let hoursLeftToday = 18 - (date.getUTCHours() - 3); // Horas restantes no dia útil no horário de Brasília
 
         if (hoursToAdd <= hoursLeftToday) {
-            date.setHours(date.getHours() + hoursToAdd);
+            date.setUTCHours(date.getUTCHours() + hoursToAdd);
             break;
         } else {
             hoursToAdd -= hoursLeftToday;
-            date.setHours(18); // Termina o expediente às 18:00
+            date.setUTCHours(18 + 3); // Termina o expediente às 18:00 no horário de Brasília
             date = getNextBusinessDay(date); // Vai para o próximo dia útil
-            if (date.getHours() >= 8 && date.getHours() < 18) {
-                date.setMinutes(initialMinutes);
-            } else {
-                date.setMinutes(0);
-            }
+
+            date.setUTCMinutes(initialMinutes); // Preserva os minutos dentro do horário útil
         }
     }
 
-    // Converte a data calculada para UTC
-    return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)); // Converte para UTC
-};
-
-
-const formatDate = (date) => format(date, "dd/MM/yyyy, HH:mm:ss");
-
-const adicionar24HorasNormais = (dataUTC) => {
-    let dateBrasilia = converterParaHorarioBrasilia(dataUTC);
-    dateBrasilia.setUTCHours(dateBrasilia.getUTCHours() + 24);
-
-    if (isWeekend(dateBrasilia)) {
-        dateBrasilia = skipWeekend(dateBrasilia);
-    }
-
-    return converterParaUTC(dateBrasilia);
-};
-
-function converterParaHorarioBrasilia(dateUTC) {
-    return new Date(dateUTC.getTime() - 3 * 60 * 60 * 1000);
-}
-
-const isWeekend = (date) => {
-    const day = date.getUTCDay();
-    return day === 6 || day === 0;
-};
-
-const skipWeekend = (date) => {
-    const day = date.getUTCDay();
-    if (day === 6) { // Sábado
-        date.setUTCDate(date.getUTCDate() + 2);
-    } else if (day === 0) { // Domingo
-        date.setUTCDate(date.getUTCDate() + 1);
-    }
     return date;
 };
 
-function converterParaUTC(dateBrasilia) {
-    return new Date(dateBrasilia.getTime() + 3 * 60 * 60 * 1000);
-}
+// Função para formatar a data no formato desejado
+const formatDate = (date) => format(date, "dd/MM/yyyy, HH:mm:ss");
+
+// Exemplo de uso:
+const dataAtual = new Date('2024-10-04T07:20:00.000');
+console.log((dataAtual));
+console.log((admin.firestore.Timestamp.fromDate(dataAtual).toDate()));
+const horasAdicionadas = addBusinessHours(dataAtual, 2);
+console.log((horasAdicionadas));
+console.log((admin.firestore.Timestamp.fromDate(horasAdicionadas).toDate()));
+
 
 module.exports = {
     addBusinessHours,
-    adicionar24HorasNormais,
     formatDate,
 };
-
