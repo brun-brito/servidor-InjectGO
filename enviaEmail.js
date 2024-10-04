@@ -88,9 +88,9 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
 
           <h2 style="color: #ec3f79;">Informações de Envio:</h2>
           <ul style="list-style: none; padding: 0;">
-            <li><strong>Frete:</strong> R$ ${envio.frete.toFixed(2)}</li>
-            <li><strong>Responsável:</strong> ${envio.responsavel}</li>
-            <li><strong>Tempo Previsto de Entrega:</strong> ${envio.tempoPrevisto} dias</li>
+            <li><strong>Frete:</strong> R$ ${(typeof envio.frete === 'number' ? envio.frete.toFixed(2) : '0.00')}</li>
+            <li><strong>Responsável:</strong> ${envio.responsavel || 'N/A'}</li>
+            <li><strong>Tempo Previsto de Entrega:</strong> ${envio.tempoPrevisto ? envio.tempoPrevisto + ' dias' : 'Até 5 horas úteis'}</li>
           </ul>
 
           <p style="margin-top: 20px;">
@@ -182,9 +182,9 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
 
           <h2 style="color: #ec3f79;">Informações de Envio:</h2>
           <ul style="list-style: none; padding: 0;">
-            <li><strong>Frete:</strong> R$ ${envio.frete.toFixed(2)}</li>
-            <li><strong>Responsável pelo envio:</strong> ${envio.responsavel}</li>
-            <li><strong>Tempo Previsto de Entrega:</strong> ${envio.tempoPrevisto} dias</li>
+            <li><strong>Frete:</strong> R$ ${(typeof envio.frete === 'number' ? envio.frete.toFixed(2) : '0.00')}</li>
+            <li><strong>Responsável pelo envio:</strong> ${envio.responsavel || 'N/A'}</li>
+            <li><strong>Tempo Previsto de Entrega:</strong> ${typeof envio.tempoPrevisto === 'number' ? envio.tempoPrevisto : 'N/A'} dias</li>
             <li><strong>Código de Rastreio:</strong> ${codigoRastreio || 'N/A'}</li>
           </ul>
 
@@ -202,7 +202,7 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
 
     let htmlContent;
     if (status === 'aprovado') {
-      htmlContent = htmlContentAprovado(pedido, produtos, distribuidor, endereco, envio);
+      htmlContent = htmlContentAprovado(distribuidor, endereco, envio );
     } else if (status === 'rejeitado') {
       const reembolsoInfo = pedido.reembolsoInfo || {};
       htmlContent = htmlContentRejeitado(distribuidor, reembolsoInfo);

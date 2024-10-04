@@ -6,9 +6,10 @@
  */
 
     const { admin } = require('./firebaseConfig');
-    const { addBusinessHours, adicionar24HorasNormais } = require('./horarioComercial');
+    const { somarHorasUteis, avancar24Horas } = require('./horarioComercial');
     const { enviarNotificacaoProfissional } = require('./notificationService'); 
     const { enviarEmailProfissional } = require('./enviaEmail')
+    const { logger } = require('./winston')
     
     async function aprovaPedido(distribuidorId, pedidoId) {    
         try {
@@ -22,13 +23,12 @@
             
             // Verifica se o documento existe
             if (!pedidoDoc.exists) {
-                console.error(`[ERROR] Pedido ${pedidoId} não encontrado para o distribuidor ${distribuidorId}.`);
+                logger.error(`Pedido ${pedidoId} não encontrado para o distribuidor ${distribuidorId}.`);
                 return;
             }
-
             const pedidoData = pedidoDoc.data();
             const tipoFrete = pedidoData.info_envio.id_responsavel;
-            const dataAtual = new Date('2024-10-03T18:20:33');
+            const dataAtual = new Date();
             const emailComprador = pedidoData.buyerInfo.email; 
             
             let prazoMaximoEnvio;
@@ -37,15 +37,15 @@
             try {
                 if (tipoFrete === 'frete_gratis') {
                     // Envio próprio -> 5 horas úteis
-                    prazoMaximoEnvio = addBusinessHours(dataAtual, 5);
-                    console.log(`[INFO] Envio próprio: O distribuidor tem até ${prazoMaximoEnvio} para realizar o envio.`);
+                    prazoMaximoEnvio = somarHorasUteis(dataAtual, 5);
+                    logger.info(`Envio próprio: O distribuidor tem até ${prazoMaximoEnvio} para realizar o envio.`);
                 } else {
                     // Transportadora -> 24 horas (sem incluir fins de semana)
-                    prazoMaximoEnvio = adicionar24HorasNormais(dataAtual);
-                    console.log(`[INFO] Transportadora: O distribuidor tem até ${prazoMaximoEnvio} para postar o produto.`);
+                    prazoMaximoEnvio = avancar24Horas(dataAtual);
+                    logger.info(`Transportadora: O distribuidor tem até ${prazoMaximoEnvio} para postar o produto.`);
                 }
             } catch (generateError) {
-                console.error(`[ERROR] Erro ao calcular o prazo máximo de envio:`, generateError.message || generateError);
+                logger.error(`Erro ao calcular o prazo máximo de envio: ${generateError.message}`);
                 return;
             }
     
@@ -53,7 +53,7 @@
                 tempo_maximo_envio: admin.firestore.Timestamp.fromDate(prazoMaximoEnvio),
                 status: 'preparando'
             });
-
+    
             const userSnapshot = await admin.firestore()
                 .collection('users')
                 .where('email', '==', emailComprador)
@@ -61,13 +61,12 @@
                 .get();
             
             if (userSnapshot.empty) {
-                console.error(`[ERROR] Comprador com o e-mail ${emailComprador} não encontrado.`);
+                logger.error(`Comprador com o e-mail ${emailComprador} não encontrado.`);
                 return;
             }
     
             const buyerDoc = userSnapshot.docs[0];
             const buyerId = buyerDoc.id;
-    
     
             const compraRef = admin.firestore()
                 .collection('users')
@@ -80,21 +79,30 @@
                 status: 'preparando' 
             });
     
-            await enviarNotificacaoProfissional(emailComprador, 
-                'Pedido Aprovado!', 
-                `Uhuul! Seu pedido ${pedidoId} foi aprovado e está em processo de preparo.`
-            );
+            try {
+                await enviarNotificacaoProfissional(emailComprador, 
+                    'Pedido Aprovado!', 
+                    `Uhuul! Seu pedido ${pedidoId} foi aprovado e está em processo de preparo.`
+                );
+                logger.info(`Notificação enviada com sucesso para ${emailComprador}`);
+            } catch (notificationError) {
+                logger.error(`Erro ao enviar notificação para o profissional com email ${emailComprador}: ${notificationError.message}`);
+            }
     
-            await enviarEmailProfissional(pedidoId, buyerId, 'Pedido aprovado!', 'aprovado');
+            try {
+                await enviarEmailProfissional(pedidoId, buyerId, 'Pedido aprovado!', 'aprovado');
+            } catch (emailError) {
+                logger.error(`Erro ao enviar e-mail: ${emailError.message}`);
+            }
     
-            console.log(`[SUCCESS] Pedido ${pedidoId} aprovado com sucesso. Prazo de envio: ${prazoMaximoEnvio}`);
+            logger.info(`Pedido aprovado com sucesso às ${new Date()}. Prazo de envio: ${prazoMaximoEnvio}`);
             
         } catch (error) {
             // Log detalhado do erro
-            console.error(`[ERROR] Erro ao aprovar o pedido ${pedidoId}:`, error.message || error);
+            logger.error(`Erro ao aprovar o pedido ${pedidoId}: ${error.message}`);
             throw new Error('Erro ao aprovar o pedido.');
         }
-    }
+    }    
     
     module.exports = {
         aprovaPedido

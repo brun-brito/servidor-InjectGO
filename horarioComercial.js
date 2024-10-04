@@ -1,120 +1,112 @@
-const { format } = require('date-fns');
-const { admin, db } = require('./firebaseConfig');
+const { DateTime } = require('luxon');
 
-// Função para verificar se é horário comercial (08:00 a 18:00 no horário de Brasília)
-const isBusinessHours = (date) => {
-    const hour = date.getUTCHours() - 3; // Ajuste para o UTC-3 (horário de Brasília)
-    return hour >= 8 && hour < 18;
-};
+// Função para verificar se um dia é útil (segunda a sexta)
+function isBusinessDay(date) {
+    const weekday = date.weekday;
+    return weekday >= 1 && weekday <= 5; // Segunda (1) a Sexta (5)
+}
 
-// Função para verificar se é dia útil (segunda a sexta)
-const isBusinessDay = (date) => {
-    const day = date.getUTCDay(); // UTC-based
-    return day >= 1 && day <= 5; // Segunda (1) a sexta (5)
-};
+// Função para calcular o próximo horário útil
+function calcularProximoHorarioUtil(dataAtual, horasAdicionais) {
+    let datetime = DateTime.fromJSDate(dataAtual, { zone: 'America/Sao_Paulo' });
 
-// Função para avançar para o próximo dia útil, preservando os minutos no fuso horário de Brasília
-const getNextBusinessDay = (date) => {
-    do {
-        date.setUTCDate(date.getUTCDate() + 1);
-    } while (!isBusinessDay(date));
+    const WORK_START_HOUR = 8;
+    const WORK_END_HOUR = 18;
 
-    date.setUTCHours(8 + 3, 0, 0, 0); // Ajusta a hora para 08:00 no horário de Brasília (UTC-3)
-    return date;
-};
+    // Enquanto houver horas a adicionar, iteramos
+    while (horasAdicionais > 0) {
+        // Verifica se é um dia útil
+        if (isBusinessDay(datetime)) {
+            const currentHour = datetime.hour;
+            const currentMinute = datetime.minute;
 
-// Função para ajustar para 08:00 do mesmo dia se for antes das 08:00 no horário de Brasília
-const adjustForBusinessStart = (date) => {
-    const hour = date.getUTCHours() - 3; // Ajusta para UTC-3
-    if (hour < 8) {
-        date.setUTCHours(8 + 3, 0, 0, 0); // Ajusta para 08:00 no horário de Brasília
-    }
-    return date;
-};
+            // Calcula quantos minutos faltam para o final do expediente
+            const remainingMinutesToday = Math.max(0, (WORK_END_HOUR * 60) - (currentHour * 60 + currentMinute));
 
-// Função para adicionar horas úteis, preservando os minutos corretamente no fuso horário de Brasília
-const addBusinessHours = (startDate, hoursToAdd) => {
-    let date = new Date(startDate.getTime());
-    const initialMinutes = date.getMinutes(); // Preserva os minutos
+            if (currentHour >= WORK_START_HOUR && currentHour < WORK_END_HOUR) {
+                // Converte horas a adicionar para minutos e compara com os minutos restantes do expediente
+                const minutesToAddToday = Math.min(horasAdicionais * 60, remainingMinutesToday);
+                datetime = datetime.plus({ minutes: minutesToAddToday });
+                horasAdicionais -= minutesToAddToday / 60;
+            }
 
-    // Se o pedido for feito entre 18:00 e 23:59 no horário de Brasília
-    if (date.getUTCHours() - 3 >= 18) {
-        date = getNextBusinessDay(date);
-        date.setUTCMinutes(0); // Zera os minutos
-        date.setUTCSeconds(0);
-    }
-
-    // Se o pedido for feito entre 00:00 e 07:59 no horário de Brasília
-    if (date.getUTCHours() - 3 < 8) {
-        date = adjustForBusinessStart(date);
-    }
-
-    while (hoursToAdd > 0) {
-        let hoursLeftToday = 18 - (date.getUTCHours() - 3); // Horas restantes no dia útil no horário de Brasília
-
-        if (hoursToAdd <= hoursLeftToday) {
-            date.setUTCHours(date.getUTCHours() + hoursToAdd);
-            break;
+            // Caso horas ainda precisem ser adicionadas, mover para o próximo dia útil
+            if (horasAdicionais > 0) {
+                datetime = datetime.plus({ days: 1 }).set({ hour: WORK_START_HOUR, minute: 0 });
+            }
         } else {
-            hoursToAdd -= hoursLeftToday;
-            date.setUTCHours(18 + 3); // Termina o expediente às 18:00 no horário de Brasília
-            date = getNextBusinessDay(date); // Vai para o próximo dia útil
-
-            date.setUTCMinutes(initialMinutes); // Preserva os minutos dentro do horário útil
+            // Se for fim de semana, pular para a próxima segunda-feira
+            datetime = datetime.plus({ days: 1 }).set({ hour: WORK_START_HOUR, minute: 0 });
         }
     }
 
-    return date;
-};
-
-const adicionar24HorasNormais = (dataUTC) => {
-    let dateBrasilia = converterParaHorarioBrasilia(dataUTC);
-    dateBrasilia.setUTCHours(dateBrasilia.getUTCHours() + 24);
-
-    if (isWeekend(dateBrasilia)) {
-        dateBrasilia = skipWeekend(dateBrasilia);
-    }
-
-    return converterParaUTC(dateBrasilia);
-};
-
-const isWeekend = (date) => {
-    const day = date.getUTCDay();
-    return day === 6 || day === 0;
-};
-
-const skipWeekend = (date) => {
-    const day = date.getUTCDay();
-    if (day === 6) { // Sábado
-        date.setUTCDate(date.getUTCDate() + 2);
-    } else if (day === 0) { // Domingo
-        date.setUTCDate(date.getUTCDate() + 1);
-    }
-    return date;
-};
-
-function converterParaHorarioBrasilia(dateUTC) {
-    return new Date(dateUTC.getTime() - 3 * 60 * 60 * 1000);
+    return datetime.toFormat('yyyy-MM-dd HH:mm');
 }
 
-function converterParaUTC(dateBrasilia) {
-    return new Date(dateBrasilia.getTime() + 3 * 60 * 60 * 1000);
+// Função para somar horas úteis a um horário específico, incluindo minutos
+function somarHorasUteis(data, horasUteis) {
+    let datetime = DateTime.fromISO(data.toISOString(), { zone: 'America/Sao_Paulo' }); // Converta a data para ISO
+    const WORK_START_HOUR = 8;
+    const WORK_END_HOUR = 18;
+
+    while (horasUteis > 0) {
+        if (isBusinessDay(datetime)) {
+            const currentHour = datetime.hour;
+            const currentMinute = datetime.minute;
+
+            const remainingMinutesToday = Math.max(0, (WORK_END_HOUR * 60) - (currentHour * 60 + currentMinute));
+
+            if (currentHour >= WORK_START_HOUR && currentHour < WORK_END_HOUR) {
+                const minutesToAddToday = Math.min(horasUteis * 60, remainingMinutesToday);
+                datetime = datetime.plus({ minutes: minutesToAddToday });
+                horasUteis -= minutesToAddToday / 60;
+            }
+
+            if (horasUteis > 0) {
+                datetime = datetime.plus({ days: 1 }).set({ hour: WORK_START_HOUR, minute: 0 });
+            }
+        } else {
+            datetime = datetime.plus({ days: 1 }).set({ hour: WORK_START_HOUR, minute: 0 });
+        }
+    }
+
+    return datetime.toJSDate(); // Retorna um objeto Date
 }
 
-// Função para formatar a data no formato desejado
-const formatDate = (date) => format(date, "dd/MM/yyyy, HH:mm:ss");
+function avancar24Horas(dataAtual) {
+    let datetime = DateTime.fromJSDate(dataAtual, { zone: 'America/Sao_Paulo' });
 
-// Exemplo de uso:
-// const dataAtual = new Date('2024-10-04T07:20:00.000');
-// console.log((dataAtual));
-// console.log((admin.firestore.Timestamp.fromDate(dataAtual).toDate()));
-// const horasAdicionadas = addBusinessHours(dataAtual, 2);
-// console.log((horasAdicionadas));
-// console.log((admin.firestore.Timestamp.fromDate(horasAdicionadas).toDate()));
+    // Avançar 24 horas
+    datetime = datetime.plus({ hours: 24 });
 
+    // Verificar se cai no fim de semana
+    if (!isBusinessDay(datetime)) {
+        // Se for sábado, pular para segunda-feira (48 horas depois)
+        if (datetime.weekday === 6) {
+            datetime = datetime.plus({ days: 2 }).set({ hour: datetime.hour, minute: datetime.minute });
+        }
+        // Se for domingo, pular para segunda-feira (24 horas depois)
+        else if (datetime.weekday === 7) {
+            datetime = datetime.plus({ days: 1 }).set({ hour: datetime.hour, minute: datetime.minute });
+        }
+    }
+
+    return datetime.toFormat('yyyy-MM-dd HH:mm');
+}
+const agora = new Date(); // Horário atual
+const horasParaAdicionar = 5;
+
+console.log(`Próximo horário útil após ${horasParaAdicionar} horas:`, calcularProximoHorarioUtil(agora, horasParaAdicionar));
+
+const horasUteis = 5; // Adicionar 2 horas e 30 minutos úteis
+const inicioDiaUtil = new Date('2024-10-07T11:49:09.581Z'); // Exemplo de início
+console.log(`Somando ${horasUteis} horas úteis ao horário ${inicioDiaUtil}:`, somarHorasUteis(inicioDiaUtil, horasUteis));
+
+// Usando a nova função para avançar 24 horas
+console.log(`Avançando 24 horas (pulando fim de semana):`, avancar24Horas(agora));
 
 module.exports = {
-    addBusinessHours,
-    formatDate,
-    adicionar24HorasNormais
+    calcularProximoHorarioUtil,
+    somarHorasUteis,
+    avancar24Horas
 };

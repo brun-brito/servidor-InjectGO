@@ -1,0 +1,4 @@
+/**
+    incluir 'data_postagem'
+  
+ */

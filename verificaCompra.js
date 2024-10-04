@@ -1,7 +1,7 @@
 const { enviarNotificacaoDistribuidor } = require('./notificationService');
 const { enviarEmailDistribuidor} = require('./enviaEmail');
 const { admin, db } = require('./firebaseConfig');
-const { addBusinessHours } = require('./horarioComercial');
+const { somarHorasUteis } = require('./horarioComercial');
 const { agendarJob, jobEstorno } = require('./jobsProgramados');
 
 // Função que busca e atualiza uma venda com base no external_reference
@@ -85,7 +85,7 @@ async function atualizaVencimento(externalReference) {
                     paymentId = vendaData.payment_id;
                     const dataAtual = new Date();
                     // Calcula o próximo dia útil + 2 horas e converte para UTC
-                    tempoMaximo = addBusinessHours(dataAtual, 2);
+                    tempoMaximo = somarHorasUteis(dataAtual, 2);
 
                     // Atualiza o campo 'tempo_maximo_aprova' no Firestore
                     await doc.ref.update({
