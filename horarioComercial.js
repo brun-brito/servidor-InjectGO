@@ -34,14 +34,12 @@ const addBusinessHours = (startDate, hoursToAdd) => {
     let date = new Date(startDate);
     const initialMinutes = date.getMinutes(); // Preserva os minutos
 
-    // Se o pedido for feito entre 18:00 e 23:59, ajusta para o próximo dia útil às 08:00
     if (date.getHours() >= 18) {
         date = getNextBusinessDay(date);
         date.setMinutes(0); // Zera os minutos se estiver após o expediente
         date.setSeconds(0);
     }
 
-    // Se o pedido for feito entre 00:00 e 07:59, ajusta para o mesmo dia, mas às 08:00
     if (date.getHours() < 8) {
         date = adjustForBusinessStart(date);
     }
@@ -49,27 +47,25 @@ const addBusinessHours = (startDate, hoursToAdd) => {
     while (hoursToAdd > 0) {
         let hoursLeftToday = 18 - date.getHours(); // Horas restantes no dia útil (até as 18:00)
 
-        // Se as horas restantes couberem no dia atual
         if (hoursToAdd <= hoursLeftToday) {
             date.setHours(date.getHours() + hoursToAdd);
             break;
         } else {
-            // Adiciona as horas restantes do dia e vai para o próximo dia útil
             hoursToAdd -= hoursLeftToday;
             date.setHours(18); // Termina o expediente às 18:00
             date = getNextBusinessDay(date); // Vai para o próximo dia útil
-
-            // Adicionar antes de preservar os minutos
             if (date.getHours() >= 8 && date.getHours() < 18) {
-                date.setMinutes(initialMinutes); // Preserva os minutos apenas dentro do horário útil
+                date.setMinutes(initialMinutes);
             } else {
-                date.setMinutes(0); // Zera os minutos fora do horário útil
+                date.setMinutes(0);
             }
         }
     }
 
-    return date;
+    // Converte a data calculada para UTC
+    return new Date(date.getTime() - (date.getTimezoneOffset() * 60000)); // Converte para UTC
 };
+
 
 const formatDate = (date) => format(date, "dd/MM/yyyy, HH:mm:ss");
 
@@ -111,6 +107,5 @@ module.exports = {
     addBusinessHours,
     adicionar24HorasNormais,
     formatDate,
-    converterParaHorarioBrasilia
 };
 
