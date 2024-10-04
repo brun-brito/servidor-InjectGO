@@ -1,16 +1,17 @@
 const schedule = require('node-schedule');
 const { rejeitarVendaPorTempo } = require('./estornoCompra');
 const { admin } = require('./firebaseConfig');
+const { converterParaHorarioBrasilia } = require('./horarioComercial');
 
 // Função para agendar um job
 function agendarJob(tempoMaximo, tarefa) {
     const job = schedule.scheduleJob(tempoMaximo, tarefa);
-    console.log(`Job agendado para ${tempoMaximo}`);
+    console.log(`Job agendado para ${converterParaHorarioBrasilia(tempoMaximo)}`);
     return job;
 }
 
 async function jobEstorno(id, distribuidorId, vendasDoPedido, paymentId) {
-  console.log(`Tentativa de estorno do pedido ${id} executada no horário:`, new Date());
+  console.log(`Tentativa de estorno do pedido ${id} executada no horário:`, converterParaHorarioBrasilia((new Date())));
 
   try {
       // Primeiro, buscar o status do pedido
@@ -36,9 +37,9 @@ async function jobEstorno(id, distribuidorId, vendasDoPedido, paymentId) {
 
       // Se o status não for 'preparando', realiza o estorno normalmente
       await rejeitarVendaPorTempo(distribuidorId, vendasDoPedido, paymentId);
-      console.log(`Estorno do pedido ${id} finalizado com SUCESSO no horário:`, new Date());
+      console.log(`Estorno do pedido ${id} finalizado com SUCESSO no horário:`, converterParaHorarioBrasilia(new Date()));
   } catch (e) {
-      console.log(`Estorno do pedido ${id} finalizado com FALHA no horário:`, new Date());
+      console.log(`Estorno do pedido ${id} finalizado com FALHA no horário:`, converterParaHorarioBrasilia(new Date()));
       console.error('Causa do erro:', e.message || e);
   }
 }

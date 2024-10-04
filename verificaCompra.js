@@ -1,7 +1,7 @@
 const { enviarNotificacaoDistribuidor } = require('./notificationService');
 const { enviarEmailDistribuidor} = require('./enviaEmail');
 const { admin, db } = require('./firebaseConfig');
-const { addBusinessHours } = require('./horarioComercial');
+const { addBusinessHours, converterParaHorarioBrasilia } = require('./horarioComercial');
 const { agendarJob, jobEstorno } = require('./jobsProgramados');
 
 // Função que busca e atualiza uma venda com base no external_reference
@@ -96,7 +96,7 @@ async function atualizaVencimento(externalReference) {
                         tempo_maximo_aprova: admin.firestore.Timestamp.fromDate(tempoMaximo),
                     });
 
-                    console.log(`Pedido ${externalReference}: Vencimento atualizado para ${tempoMaximo}`);
+                    console.log(`Pedido ${externalReference}: Vencimento atualizado para ${converterParaHorarioBrasilia(tempoMaximo)}`);
                     agendarJob(tempoMaximo, () => jobEstorno(externalReference, distribuidorId, vendasDoPedido, paymentId));
                 }
             }

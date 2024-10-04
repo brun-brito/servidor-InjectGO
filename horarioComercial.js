@@ -110,6 +110,7 @@ function converterParaUTC(dateBrasilia) {
 module.exports = {
     addBusinessHours,
     adicionar24HorasNormais,
-    formatDate
+    formatDate,
+    converterParaHorarioBrasilia
 };
 

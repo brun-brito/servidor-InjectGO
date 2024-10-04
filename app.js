@@ -69,7 +69,7 @@ app.get('/success', async (req, res) => {
             return res.status(400).send('Parâmetros inválidos.');
         }
 
-        // await atualizarStatusPagamento(external_reference, payment_id, 'solicitado');
+        await atualizarStatusPagamento(external_reference, payment_id, 'solicitado');
         await atualizaVencimento(external_reference);
         res.status(200).send(`
             <!DOCTYPE html>
