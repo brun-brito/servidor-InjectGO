@@ -17,7 +17,7 @@ async function enviarNotificacaoDistribuidor(distribuidorId, titulo, mensagem) {
 
     const distribuidorData = distribuidorDoc.data();
     const emailDistribuidor = distribuidorData.email;
-    const tokens = distribuidorData.tokens || []; // Busca o array de tokens
+    const tokens = distribuidorData.tokens || [];
 
     if (tokens.length === 0) {
       console.log(`Nenhum token encontrado para o distribuidor ${distribuidorId}.`);
@@ -26,7 +26,7 @@ async function enviarNotificacaoDistribuidor(distribuidorId, titulo, mensagem) {
 
     // Envia notificações para todos os tokens do distribuidor
     for (const tokenData of tokens) {
-      const fcmToken = tokenData.fcmToken; // Pega o FCM token
+      const fcmToken = tokenData.fcmToken;
 
       if (!fcmToken) {
         console.log(`Nenhum FCM token válido encontrado.`);
@@ -45,7 +45,7 @@ async function enviarNotificacaoDistribuidor(distribuidorId, titulo, mensagem) {
             route: "/minhas_vendas",
             distribuidorId: distribuidorId,
             email: emailDistribuidor,
-            initialTab: "0"  // Aba "Solicitado"
+            initialTab: "0"
           }
         }
       };
@@ -53,7 +53,7 @@ async function enviarNotificacaoDistribuidor(distribuidorId, titulo, mensagem) {
       const url = `https://fcm.googleapis.com/v1/projects/${process.env.FIREBASE_PROJECT_ID}/messages:send`;
       
       const accessToken = await getAccessToken();
-
+      // Faz uma requisição POST para api do google, que realiza o envio da notificação
       const response = await axios.post(url, payload, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -75,7 +75,6 @@ async function enviarNotificacaoDistribuidor(distribuidorId, titulo, mensagem) {
 
 async function enviarNotificacaoProfissional(email, titulo, mensagem) {
   try {
-    // Buscar o documento do profissional pelo email
     const profissionalRef = db.collection('users').where('email', '==', email).limit(1);
     const profissionalSnapshot = await profissionalRef.get();
     
@@ -86,16 +85,15 @@ async function enviarNotificacaoProfissional(email, titulo, mensagem) {
 
     const profissionalDoc = profissionalSnapshot.docs[0];
     const profissionalData = profissionalDoc.data();
-    const tokens = profissionalData.tokens || []; // Busca o array de tokens
+    const tokens = profissionalData.tokens || [];
 
     if (tokens.length === 0) {
       console.log(`Nenhum token encontrado para o profissional com email ${email}.`);
       return;
     }
 
-    // Loop para enviar notificações para todos os tokens
     for (const tokenData of tokens) {
-      const fcmToken = tokenData.fcmToken; // Pega o FCM token
+      const fcmToken = tokenData.fcmToken;
 
       if (!fcmToken) {
         console.log(`Nenhum FCM token válido encontrado no array de tokens.`);
@@ -142,7 +140,6 @@ async function enviarNotificacaoProfissional(email, titulo, mensagem) {
 
 async function enviarNotificacao(titulo, mensagem, userId, tipoUsuario) {
   try {
-      // Definir a coleção com base no tipo de usuário
       const userCollections = {
         'distribuidor': 'distribuidores',
         'profissional': 'users',
@@ -153,11 +150,9 @@ async function enviarNotificacao(titulo, mensagem, userId, tipoUsuario) {
         return 'Tipo de usuário inválido';
       }
       
-      // Obter os tokens FCM do usuário (distribuidor ou profissional)
       const userRef = db.collection(collection).where('email', '==', userId);
       const userSnapshot = await userRef.get();
 
-      // Verificar se o documento foi encontrado
       if (userSnapshot.empty) {
           console.log(`Usuário com email ${userId} não encontrado na coleção ${collection}.`);
           return;
@@ -178,7 +173,6 @@ async function enviarNotificacao(titulo, mensagem, userId, tipoUsuario) {
           return;
       }
       
-      // Para cada token, enviar a notificação usando a API v1
       for (const token of fcmTokens) {
           const payload = {
               message: {
@@ -191,7 +185,7 @@ async function enviarNotificacao(titulo, mensagem, userId, tipoUsuario) {
                       click_action: "FLUTTER_NOTIFICATION_CLICK",
                       route: tipoUsuario === 'distribuidor' ? "/minhas_vendas" : "/minhas_compras",
                       userId: userId,
-                      initialTab: "0"  // Aba inicial (pode ser ajustada conforme necessário)
+                      initialTab: "0" 
                   }
               }
           };

@@ -2,7 +2,6 @@ const schedule = require('node-schedule');
 const { rejeitarVendaPorTempo } = require('./estornoCompra');
 const { admin } = require('./firebaseConfig');
 
-// Função para agendar um job
 function agendarJob(tempoMaximo, tarefa) {
     const job = schedule.scheduleJob(tempoMaximo, tarefa);
     console.log(`Job agendado para ${tempoMaximo}`);
@@ -13,7 +12,6 @@ async function jobEstorno(id, distribuidorId, vendasDoPedido, paymentId) {
   console.log(`Tentativa de estorno do pedido ${id} executada no horário:`, new Date());
 
   try {
-      // Primeiro, buscar o status do pedido
       const vendaDoc = await admin.firestore()
           .collection('distribuidores')
           .doc(distribuidorId)
@@ -28,13 +26,11 @@ async function jobEstorno(id, distribuidorId, vendasDoPedido, paymentId) {
 
       const vendaData = vendaDoc.data();
       
-      // Verifica se o status é "preparando"
       if (vendaData.status === 'preparando') {
           console.log(`O pedido ${id} já foi aceito pelo distribuidor. Nenhum estorno será realizado.`);
-          return; // Não realiza o estorno
+          return;
       }
 
-      // Se o status não for 'preparando', realiza o estorno normalmente
       await rejeitarVendaPorTempo(distribuidorId, vendasDoPedido, paymentId);
       console.log(`Estorno do pedido ${id} finalizado com SUCESSO no horário:`, new Date());
   } catch (e) {

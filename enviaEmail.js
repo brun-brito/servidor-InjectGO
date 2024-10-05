@@ -44,12 +44,15 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
   
     const pedido = pedidoDoc.data();
     const distribuidor = pedido.distributorInfo;
-    const produtos = pedido.produtos; // Lista de produtos
+    const produtos = pedido.produtos;
     const endereco = pedido.endereco_entrega;
     const envio = {
       frete: pedido.info_entrega.frete || 0,
+      id: pedido.info_entrega.id_responsavel || 'N/A',
       responsavel: pedido.info_entrega.responsavel || 'N/A',
-      tempoPrevisto: pedido.info_entrega.tempo_previsto > 0 ? pedido.info_entrega.tempo_previsto : 'Não especificado'
+      tempoPrevisto: pedido.info_entrega.id_responsavel === 'frete_gratis'
+        ? 'Até 5 horas úteis'
+        : (pedido.info_entrega.tempo_previsto > 0 ? pedido.info_entrega.tempo_previsto + ' dias' : 'Não especificado')
     };
 
     // Adiciona a lista de produtos ao HTML
@@ -64,7 +67,7 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
         
         <div style="padding: 20px;">
           <h1 style="color: #333;">Seu pedido foi aprovado!</h1>
-          <p>O pagamento foi confirmado, e o seu pedido está sendo processado.</p>
+          <p>O pagamento ${pedido.payment_id} foi confirmado, e o seu pedido está sendo processado.</p>
 
           <h2 style="color: #ec3f79;">Pedido:</h2>
           ${htmlProdutos}
@@ -90,7 +93,7 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
           <ul style="list-style: none; padding: 0;">
             <li><strong>Frete:</strong> R$ ${(typeof envio.frete === 'number' ? envio.frete.toFixed(2) : '0.00')}</li>
             <li><strong>Responsável:</strong> ${envio.responsavel || 'N/A'}</li>
-            <li><strong>Tempo Previsto de Entrega:</strong> ${envio.tempoPrevisto ? envio.tempoPrevisto + ' dias' : 'Até 5 horas úteis'}</li>
+            <li><strong>Tempo Previsto de Entrega:</strong> ${envio.tempoPrevisto}</li>
           </ul>
 
           <p style="margin-top: 20px;">
@@ -240,7 +243,6 @@ async function enviarEmailProfissional(externalReference, profissionalId, titulo
   
 async function enviarEmailDistribuidor(externalReference, distribuidorId, titulo) {
     try {
-      // Obter os dados do distribuidor
       const distribuidorRef = db.collection('distribuidores').doc(distribuidorId);
       const distribuidorDoc = await distribuidorRef.get();
   

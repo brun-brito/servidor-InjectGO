@@ -21,7 +21,6 @@
             
             const pedidoDoc = await pedidoRef.get();
             
-            // Verifica se o documento existe
             if (!pedidoDoc.exists) {
                 logger.error(`Pedido ${pedidoId} não encontrado para o distribuidor ${distribuidorId}.`);
                 return;
@@ -98,7 +97,6 @@
             logger.info(`Pedido aprovado com sucesso às ${new Date()}. Prazo de envio: ${prazoMaximoEnvio}`);
             
         } catch (error) {
-            // Log detalhado do erro
             logger.error(`Erro ao aprovar o pedido ${pedidoId}: ${error.message}`);
             throw new Error('Erro ao aprovar o pedido.');
         }

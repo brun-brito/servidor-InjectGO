@@ -9,10 +9,9 @@ async function verificarPagamento(paymentId) {
             }
         });
 
-        // O external_reference é utilizado para identificar o distribuidor
         return {
             status: response.data.status,
-            distributorId: response.data.external_reference  // Obtendo o distribuidor do external_reference
+            distributorId: response.data.external_reference
         };
     } catch (error) {
         console.error('Erro ao verificar pagamento:', error);

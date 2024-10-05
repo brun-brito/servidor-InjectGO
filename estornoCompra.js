@@ -13,7 +13,6 @@ async function rejeitarVendaPorTempo(distribuidorId, vendasDoPedido, paymentId) 
             const vendaId = venda.id;
             const buyerEmail = venda.buyerInfo.email;
             
-            // Atualiza o status para o distribuidor no Firestore e salva os dados do reembolso
             await admin.firestore()
                 .collection('distribuidores')
                 .doc(distribuidorId)
@@ -28,7 +27,7 @@ async function rejeitarVendaPorTempo(distribuidorId, vendasDoPedido, paymentId) 
                     }
                 });
 
-            // Atualiza o status para o comprador
+            // Atualiza o status para o comprador (profissional)
             const querySnapshot = await admin.firestore()
                 .collection('users')
                 .where('email', '==', buyerEmail)
@@ -54,10 +53,7 @@ async function rejeitarVendaPorTempo(distribuidorId, vendasDoPedido, paymentId) 
                         }
                     });
 
-                // Envia a notificação para o comprador
                 await enviarNotificacaoProfissional(buyerEmail, 'Pedido sem resposta', 'O responsável pelo seu pedido não nos forneceu uma resposta no tempo hábil, sua compra foi cancelada e reembolsada.');
-
-                // Envia um e-mail para o comprador
                 await enviarEmailProfissional(compraId, buyerId, 'Pedido sem resposta', 'rejeitado');
             }
         }
@@ -85,7 +81,7 @@ async function realizarReembolso(paymentId, distribuidorId) {
             throw new Error('Access token não encontrado.');
         }
 
-        // Gera a chave de idempotência (UUID V4)
+        // Gera a chave de idempotência exigida pelo MP (UUID V4)
         const idempotencyKey = uuidv4();
 
         // Faz a requisição para o Mercado Pago para realizar o reembolso
@@ -94,12 +90,11 @@ async function realizarReembolso(paymentId, distribuidorId) {
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${accessToken}`,
-                'X-Idempotency-Key': idempotencyKey // Chave de idempotência gerada
+                'X-Idempotency-Key': idempotencyKey
             }
         });
 
         if (response.status === 201) {
-            // Reembolso bem-sucedido
             const refundData = response.data;
             return {
                 id: refundData.id,
@@ -116,7 +111,6 @@ async function realizarReembolso(paymentId, distribuidorId) {
         } else {
             console.error('Erro ao realizar o reembolso:', error.message);
         }
-        // Lançar o erro para que a função chamadora saiba que falhou
         throw new Error('Erro ao realizar o reembolso.');
     }
 }

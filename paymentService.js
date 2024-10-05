@@ -3,7 +3,6 @@ const axios = require('axios');
 const { db, admin } = require('./firebaseConfig');
 const moment = require('moment'); 
 
-// Função para verificar o status dos pagamentos e retornar os logs
 async function verificarPagamentosDistribuidores() {
   let logs = [];
 
@@ -59,10 +58,8 @@ async function verificarPagamentosDistribuidores() {
 
 async function verificarEAtualizarTokens() {
   try {
-    // Busca todos os distribuidores
     const distribuidoresSnapshot = await db.collection('distribuidores').get();
 
-    // Para cada distribuidor, verifica a data de expiração
     distribuidoresSnapshot.forEach(async (doc) => {
       const distribuidorData = doc.data();
       const credenciaisMp = distribuidorData.credenciais_mp;
@@ -76,7 +73,6 @@ async function verificarEAtualizarTokens() {
         if (diasRestantes <= 5) {
           console.log(`Token do distribuidor ${doc.id} vai expirar em ${diasRestantes} dias. Atualizando...`);
 
-          // Chama a função de renovação do token
           await renovarAccessToken(
             credenciaisMp.refresh_token,
             doc.id // Passa o ID do distribuidor para atualizar no Firestore
@@ -107,8 +103,8 @@ async function renovarAccessToken(refreshToken, distribuidorId) {
       const newAccessToken = data.access_token;
       const newRefreshToken = data.refresh_token;
       const publicKey = data.public_key;
-      const userId = data.user_id.toString();  // Convertendo o user_id para string
-      const expiresIn = data.expires_in;       // Tempo de expiração em segundos
+      const userId = data.user_id.toString();
+      const expiresIn = data.expires_in;
 
       // Calcula a nova data de expiração (em 180 dias, conforme o expires_in)
       const novaDataExpiracao = moment().add(expiresIn, 'seconds').format('DD-MM-YYYY');
@@ -116,11 +112,11 @@ async function renovarAccessToken(refreshToken, distribuidorId) {
       // Atualiza os dados no Firestore no formato especificado
       await db.collection('distribuidores').doc(distribuidorId).update({
         'credenciais_mp': {
-          'access_token': newAccessToken,       // Atualiza o access_token
-          'refresh_token': newRefreshToken,     // Atualiza o refresh_token
-          'data_expiracao': novaDataExpiracao,  // Nova data de expiração no formato dd-mm-yyyy
-          'public_key': publicKey,              // Atualiza a public_key
-          'user_id': userId,                    // Atualiza o user_id como string
+          'access_token': newAccessToken,
+          'refresh_token': newRefreshToken,
+          'data_expiracao': novaDataExpiracao,
+          'public_key': publicKey,
+          'user_id': userId,
         }
       });
 
